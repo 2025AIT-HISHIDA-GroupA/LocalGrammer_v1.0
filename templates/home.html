@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+
+{% block title %}ホーム - 投稿アプリ{% endblock %}
+
+{% block content %}
+<h2>ホーム</h2>
+
+{% if posts %}
+{% for post in posts %}
+<div class="post">
+    <div class="post-header">
+        <strong>{{ post.username }}</strong>
+        <div class="post-meta">
+            <span>{{ post.tag }}</span> |
+            <span>{{ post.region.prefecture }}{{ post.region.city }}</span> |
+            <span>{{ post.created_at[:10] }}</span>
+        </div>
+    </div>
+
+    {% if post.images %}
+    <div class="post-images" style="margin-top: 10px;">
+        <div style="display: flex; flex-wrap: wrap; gap: 10px;">
+            {% for image in post.images %}
+            <img src="{{ url_for('static', filename='uploads/' + image) }}" alt="投稿画像"
+                style="width: 150px; height: 150px; object-fit: cover; border-radius: 8px; cursor: pointer;"
+                onclick="openImageModal('{{ url_for('static', filename='uploads/' + image) }}')">
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- グッドボタンとコメント数 -->
+    <div class="post-actions"
+        style="margin-top: 15px; padding-top: 10px; border-top: 1px solid #eee; display: flex; gap: 20px; align-items: center;">
+        <button onclick="toggleLike('{{ post.id }}')" class="like-btn" id="like-btn-{{ post.id }}"
+            style="background: {{ 'red' if post.user_liked else '#f0f0f0' }}; color: {{ 'white' if post.user_liked else '#333' }}; border: none; padding: 8px 15px; border-radius: 20px; cursor: pointer; display: flex; align-items: center; gap: 5px;">
+            <span>👍</span>
+            <span id="like-count-{{ post.id }}">{{ post.like_count }}</span>
+        </button>
+
+        <span style="color: #666;">💬 {{ post.comment_count }} コメント</span>
+
+        <button onclick="toggleComments('{{ post.id }}')" class="btn" style="padding: 5px 10px; font-size: 0.9em;">
+            コメント表示/非表示
+        </button>
+    </div>
+
+    <!-- コメントセクション -->
+    <div class="comments-section" id="comments-{{ post.id }}"
+        style="display: none; margin-top: 15px; padding-top: 10px; border-top: 1px solid #eee;">
+        <!-- 既存のコメント -->
+        <div class="existing-comments" id="existing-comments-{{ post.id }}">
+            {% for comment in post.comments %}
+            <div class="comment"
+                style="margin-bottom: 10px; padding: 10px; background-color: #f9f9f9; border-radius: 5px;">
+                <div style="font-weight: bold; color: #007bff; font-size: 0.9em;">{{ comment.username }}</div>
+                <div style="margin-top: 5px;">{{ comment.comment }}</div>
+                <div style="font-size: 0.8em; color: #666; margin-top: 5px;">{{ comment.created_at[:10] }}</div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- コメント投稿フォーム -->
+        <div class="comment-form" style="margin-top: 15px;">
+            <form onsubmit="addComment(event, '{{ post.id }}')" style="display: flex; gap: 10px;">
+                <input type="text" id="comment-input-{{ post.id }}" placeholder="コメントを入力..." required
+                    style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 20px;">
+                <button type="submit" class="btn" style="padding: 8px 15px;">投稿</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endfor %}
+{% else %}
+<p>まだ投稿がありません。</p>
+{% endif %}
+
+<!-- 画像拡大表示用のモーダル -->
+<div id="imageModal"
+    style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.8); z-index: 1000; cursor: pointer;"
+    onclick="closeImageModal()">
+    <div style="display: flex; justify-content: center; align-items: center; height: 100%;">
+        <img id="modalImage" style="max-width: 90%; max-height: 90%; object-fit: contain;">
+    </div>
+</div>
+
+<script>
+    function openImageModal(imageSrc) {
+        document.getElementById('modalImage').src = imageSrc;
+        document.getElementById('imageModal').style.display = 'block';
+    }
+
+    function closeImageModal() {
+        document.getElementById('imageModal').style.display = 'none';
+    }
+
+    function toggleComments(postId) {
+        const commentsSection = document.getElementById('comments-' + postId);
+        if (commentsSection.style.display === 'none') {
+            commentsSection.style.display = 'block';
+        } else {
+            commentsSection.style.display = 'none';
+        }
+    }
+
+    function toggleLike(postId) {
+        fetch('/toggle_like', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: 'post_id=' + encodeURIComponent(postId)
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const likeBtn = document.getElementById('like-btn-' + postId);
+                    const likeCount = document.getElementById('like-count-' + postId);
+
+                    likeCount.textContent = data.like_count;
+
+                    if (data.liked) {
+                        likeBtn.style.background = 'red';
+                        likeBtn.style.color = 'white';
+                    } else {
+                        likeBtn.style.background = '#f0f0f0';
+                        likeBtn.style.color = '#333';
+                    }
+                } else {
+                    alert(data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('エラーが発生しました');
+            });
+    }
+
+    function addComment(event, postId) {
+        event.preventDefault();
+
+        const commentInput = document.getElementById('comment-input-' + postId);
+        const commentText = commentInput.value.trim();
+
+        if (!commentText) {
+            alert('コメントを入力してください');
+            return;
+        }
+
+        fetch('/add_comment', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: 'post_id=' + encodeURIComponent(postId) + '&comment_text=' + encodeURIComponent(commentText)
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // コメントを表示エリアに追加
+                    const existingComments = document.getElementById('existing-comments-' + postId);
+                    const newComment = document.createElement('div');
+                    newComment.className = 'comment';
+                    newComment.style.cssText = 'margin-bottom: 10px; padding: 10px; background-color: #f9f9f9; border-radius: 5px;';
+                    newComment.innerHTML = `
+                <div style="font-weight: bold; color: #007bff; font-size: 0.9em;">${data.comment.username}</div>
+                <div style="margin-top: 5px;">${data.comment.comment}</div>
+                <div style="font-size: 0.8em; color: #666; margin-top: 5px;">${data.comment.created_at.substring(0, 10)}</div>
+            `;
+                    existingComments.appendChild(newComment);
+
+                    // 入力フィールドをクリア
+                    commentInput.value = '';
+
+                    // ページをリロードしてコメント数を更新
+                    location.reload();
+                } else {
+                    alert(data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('エラーが発生しました');
+            });
+    }
+</script>
+{% endblock %}

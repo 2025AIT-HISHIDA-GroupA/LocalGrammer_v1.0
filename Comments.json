@@ -1,0 +1,18 @@
+[
+  {
+    "id": "a9057685-d7b6-48c4-a411-635c6d3200dd",
+    "post_id": "f1702fa5-af42-468c-9a0a-af8510fb1abc",
+    "user_id": "27c56993-8407-49af-afac-94a37c26aadf",
+    "username": "takaya",
+    "comment": "aaaa",
+    "created_at": "2025-06-02T06:23:14.584123"
+  },
+  {
+    "id": "bc4f280b-32a9-4ce1-a250-d7472b8b6ca9",
+    "post_id": "f1702fa5-af42-468c-9a0a-af8510fb1abc",
+    "user_id": "27c56993-8407-49af-afac-94a37c26aadf",
+    "username": "takaya",
+    "comment": "aaaa",
+    "created_at": "2025-06-02T06:23:32.003287"
+  }
+]
