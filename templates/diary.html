@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+
+{% block title %}日記 - 投稿アプリ{% endblock %}
+
+{% block content %}
+<h2>あなたの投稿履歴</h2>
+
+{% if posts %}
+{% for post in posts %}
+<div class="post">
+    <div class="post-header">
+        <strong>{{ post.username }}</strong>
+        <div class="post-meta">
+            <span>{{ post.created_at[:10] }}</span>
+        </div>
+    </div>
+    <div>
+        <strong>タグ:</strong> {{ post.tag }}<br>
+        <strong>地域:</strong> {{ post.region.prefecture }}{{ post.region.city }}
+    </div>
+
+    {% if post.images %}
+    <div class="post-images" style="margin-top: 10px;">
+        <strong>画像:</strong>
+        <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 5px;">
+            {% for image in post.images %}
+            <img src="{{ url_for('static', filename='uploads/' + image) }}" alt="投稿画像"
+                style="width: 100px; height: 100px; object-fit: cover; border-radius: 4px; cursor: pointer;"
+                onclick="openImageModal('{{ url_for('static', filename='uploads/' + image) }}')">
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- 統計情報 -->
+    <div class="post-stats"
+        style="margin-top: 15px; padding-top: 10px; border-top: 1px solid #eee; display: flex; gap: 20px; align-items: center;">
+        <span style="color: #666; display: flex; align-items: center; gap: 5px;">
+            <span>👍</span>
+            <span>{{ post.like_count }} グッド</span>
+        </span>
+
+        <span style="color: #666;">💬 {{ post.comment_count }} コメント</span>
+
+        <button onclick="toggleComments('{{ post.id }}')" class="btn" style="padding: 5px 10px; font-size: 0.9em;">
+            コメント表示/非表示
+        </button>
+    </div>
+
+    <!-- コメントセクション -->
+    <div class="comments-section" id="comments-{{ post.id }}"
+        style="display: none; margin-top: 15px; padding-top: 10px; border-top: 1px solid #eee;">
+        {% for comment in post.comments %}
+        <div class="comment" style="margin-bottom: 10px; padding: 10px; background-color: #f9f9f9; border-radius: 5px;">
+            <div style="font-weight: bold; color: #007bff; font-size: 0.9em;">{{ comment.username }}</div>
+            <div style="margin-top: 5px;">{{ comment.comment }}</div>
+            <div style="font-size: 0.8em; color: #666; margin-top: 5px;">{{ comment.created_at[:10] }}</div>
+        </div>
+        {% endfor %}
+
+        {% if not post.comments %}
+        <p style="color: #666; font-style: italic;">まだコメントがありません。</p>
+        {% endif %}
+    </div>
+</div>
+{% endfor %}
+{% else %}
+<p>まだ投稿がありません。</p>
+<a href="{{ url_for('post') }}" class="btn">最初の投稿をする</a>
+{% endif %}
+
+<!-- 画像拡大表示用のモーダル -->
+<div id="imageModal"
+    style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.8); z-index: 1000; cursor: pointer;"
+    onclick="closeImageModal()">
+    <div style="display: flex; justify-content: center; align-items: center; height: 100%;">
+        <img id="modalImage" style="max-width: 90%; max-height: 90%; object-fit: contain;">
+    </div>
+</div>
+
+<script>
+    function openImageModal(imageSrc) {
+        document.getElementById('modalImage').src = imageSrc;
+        document.getElementById('imageModal').style.display = 'block';
+    }
+
+    function closeImageModal() {
+        document.getElementById('imageModal').style.display = 'none';
+    }
+
+    function toggleComments(postId) {
+        const commentsSection = document.getElementById('comments-' + postId);
+        if (commentsSection.style.display === 'none') {
+            commentsSection.style.display = 'block';
+        } else {
+            commentsSection.style.display = 'none';
+        }
+    }
+</script>
+{% endblock %}

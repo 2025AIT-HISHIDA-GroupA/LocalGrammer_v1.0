@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block title %}プロフィール - 投稿アプリ{% endblock %}
+
+{% block content %}
+<h2>プロフィール設定</h2>
+
+<form method="POST">
+    <div class="form-group">
+        <label>地域設定</label>
+        <div style="margin-bottom: 10px;">
+            <label for="prefecture">県:</label>
+            <select id="prefecture" name="prefecture" disabled>
+                <option value="愛知県">愛知県</option>
+            </select>
+        </div>
+        <div>
+            <label for="city">市町村:</label>
+            <select id="city" name="city" required>
+                {% for city in cities %}
+                <option value="{{ city }}" {% if city==current_region.city %}selected{% endif %}>
+                    {{ city }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+    </div>
+
+    <div class="form-group">
+        <label>タグ設定</label>
+        <div class="checkbox-group">
+            {% for tag in all_tags %}
+            <div class="checkbox-item">
+                <input type="checkbox" id="tag_{{ loop.index }}" name="tags" value="{{ tag }}" {% if tag in current_tags
+                    %}checked{% endif %}>
+                <label for="tag_{{ loop.index }}">{{ tag }}</label>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <button type="submit" class="btn">保存</button>
+    <a href="{{ url_for('home') }}" class="btn btn-secondary">キャンセル</a>
+</form>
+{% endblock %}

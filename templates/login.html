@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block title %}ログイン - 投稿アプリ{% endblock %}
+
+{% block content %}
+<h2>ログイン</h2>
+
+<form method="POST">
+    <div class="form-group">
+        <label for="username">ID:</label>
+        <input type="text" id="username" name="username" required>
+    </div>
+
+    <div class="form-group">
+        <label for="password">パスワード:</label>
+        <input type="password" id="password" name="password" required>
+    </div>
+
+    <button type="submit" class="btn">決定</button>
+</form>
+
+<div style="margin-top: 20px;">
+    <a href="{{ url_for('register') }}" class="btn btn-secondary">ユーザー登録</a>
+</div>
+{% endblock %}
