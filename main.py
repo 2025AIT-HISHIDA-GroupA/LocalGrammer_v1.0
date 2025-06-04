@@ -56,17 +56,19 @@ init_json_files()
 
 # 広域エリアリスト
 REGIONS = [
-    '東海3県',
+    '東海圏',
     '首都圏', 
     '関西圏',
-    '九州・沖縄',
-    '北海道・東北',
+    '九州',
+    '沖縄',
+    '北海道',
+    '東北',
     '中国・四国',
     '北陸・甲信越'
 ]
 
 # タグリスト
-TAGS = ['景色', '動物', 'スイーツ', '映え']
+TAGS = ['景色', '動物', 'スイーツ', '映え','料理', 'スポーツ']
 
 def load_json(filename):
     try:
@@ -142,8 +144,7 @@ def register():
         # 初期プロフィール設定
         regions = load_json('Regions.json')
         regions[user_id] = {
-            'prefecture': '愛知県',
-            'city': '豊田市'
+            'region': '東海圏'
         }
         save_json('Regions.json', regions)
         
@@ -321,7 +322,7 @@ def profile():
     regions = load_json('Regions.json')
     tags = load_json('Tags.json')
     
-    current_region = regions.get(user_id, {'region': '東海3県'})
+    current_region = regions.get(user_id, {'region': '東海圏'})
     current_tags = tags.get(user_id, TAGS.copy())
     
     return render_template('profile.html', 
