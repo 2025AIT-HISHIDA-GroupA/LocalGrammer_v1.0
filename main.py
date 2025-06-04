@@ -130,9 +130,14 @@ def register():
         username = request.form['username']
         password = request.form['password']
         
-        user_id = str(uuid.uuid4())
         users = load_json('Userdata.json')
         
+        # ユーザー名がすでに存在するか確認
+        if any(user_data['username'] == username for user_data in users.values()):
+            flash('すでに登録済みのIDです。別のIDを使用してください。', 'error')
+            return render_template('register.html')
+        
+        user_id = str(uuid.uuid4())
         users[user_id] = {
             'username': username,
             'password': password,
@@ -153,6 +158,7 @@ def register():
         save_json('Tags.json', tags)
         
         flash('ユーザ情報が登録されました', 'success')
+        return redirect(url_for('login'))
     
     return render_template('register.html')
 
