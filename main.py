@@ -27,7 +27,7 @@ def init_json_files():
         with open('Userdata.json', 'w', encoding='utf-8') as f:
             json.dump({}, f, ensure_ascii=False, indent=2)
     
-    # Regions.json
+    # Regions.jsonの内容は初期状態で、県:愛知県,市町村:名古屋市を登録して。
     if not os.path.exists('Regions.json'):
         with open('Regions.json', 'w', encoding='utf-8') as f:
             json.dump({}, f, ensure_ascii=False, indent=2)
@@ -54,15 +54,15 @@ def init_json_files():
 
 init_json_files()
 
-# 愛知県の市町村リスト
-AICHI_CITIES = [
-    '名古屋市', '一宮市', '瀬戸市', '春日井市', '犬山市', '江南市', '小牧市', '稲沢市', 
-    '尾張旭市', '岩倉市', '豊明市', '日進市', '清須市', '北名古屋市', '長久手市', 
-    '東郷町', '豊山町', '大口町', '扶桑町', '津島市', '愛西市', '弥富市', 'あま市', 
-    '大治町', '蟹江町', '飛島村', '半田市', '常滑市', '東海市', '大府市', '知多市', 
-    '阿久比町', '東浦町', '南知多町', '美浜町', '武豊町', '岡崎市', '碧南市', '刈谷市', 
-    '豊田市', '安城市', '西尾市', '知立市', '高浜市', 'みよし市', '幸田町', '豊橋市', 
-    '豊川市', '蒲郡市', '新城市', '田原市', '設楽町', '東栄町', '豊根村'
+# 広域エリアリスト
+REGIONS = [
+    '東海3県',
+    '首都圏', 
+    '関西圏',
+    '九州・沖縄',
+    '北海道・東北',
+    '中国・四国',
+    '北陸・甲信越'
 ]
 
 # タグリスト
@@ -71,8 +71,22 @@ TAGS = ['景色', '動物', 'スイーツ', '映え']
 def load_json(filename):
     try:
         with open(filename, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    except FileNotFoundError:
+            data = json.load(f)
+            # 空のファイルや不正なJSONの場合のデフォルト値
+            if filename == 'Comments.json' and not isinstance(data, list):
+                return []
+            elif filename == 'Likes.json' and not isinstance(data, dict):
+                return {}
+            elif filename == 'Posts.json' and not isinstance(data, list):
+                return []
+            return data
+    except (FileNotFoundError, json.JSONDecodeError):
+        # ファイルが存在しないか、JSONが不正な場合のデフォルト値
+        if filename.endswith('.json'):
+            if 'Comments' in filename or 'Posts' in filename:
+                return []
+            else:
+                return {}
         return {}
 
 def save_json(filename, data):
@@ -81,10 +95,17 @@ def save_json(filename, data):
 
 @app.route('/')
 def index():
+    # ログイン済みの場合はホームページにリダイレクト
+    if 'user_id' in session:
+        return redirect(url_for('home'))
     return redirect(url_for('login'))
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
+    # すでにログイン済みの場合はホームページにリダイレクト
+    if 'user_id' in session:
+        return redirect(url_for('home'))
+        
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password']
@@ -152,11 +173,24 @@ def home():
     posts = load_json('Posts.json')
     filtered_posts = []
     
+    print(f"Debug - User region: {user_region}")
+    print(f"Debug - User tags: {user_tags}")
+    
     for post in posts:
+        print(f"Debug - Post region: {post.get('region', {})}")
+        print(f"Debug - Post tag: {post.get('tag')}")
+        
         # 地域とタグがマッチする投稿のみ表示
-        if (post.get('region', {}).get('city') == user_region.get('city') and
-            post.get('tag') in user_tags):
+        region_match = post.get('region', {}).get('region') == user_region.get('region')
+        tag_match = post.get('tag') in user_tags
+        
+        print(f"Debug - Region match: {region_match}, Tag match: {tag_match}")
+        
+        if region_match and tag_match:
             filtered_posts.append(post)
+            print(f"Debug - Post added to filtered_posts")
+    
+    print(f"Debug - Total filtered posts: {len(filtered_posts)}")
     
     # コメントとグッド数を追加
     comments = load_json('Comments.json')
@@ -183,8 +217,7 @@ def post():
     
     if request.method == 'POST':
         tag = request.form['tag']
-        prefecture = request.form['prefecture']
-        city = request.form['city']
+        region = request.form['region']
         
         # 画像ファイルの処理
         uploaded_images = []
@@ -214,8 +247,7 @@ def post():
             'username': session['username'],
             'tag': tag,
             'region': {
-                'prefecture': prefecture,
-                'city': city
+                'region': region
             },
             'images': uploaded_images,
             'created_at': datetime.now().isoformat()
@@ -228,7 +260,7 @@ def post():
         flash('ポストしました。', 'success')
         return redirect(url_for('home'))
     
-    return render_template('post.html', cities=AICHI_CITIES, tags=TAGS)
+    return render_template('post.html', regions=REGIONS, tags=TAGS)
 
 @app.route('/diary')
 def diary():
@@ -268,12 +300,11 @@ def profile():
     
     if request.method == 'POST':
         # 地域の更新
-        if 'city' in request.form:
-            city = request.form['city']
+        if 'region' in request.form:
+            region = request.form['region']
             regions = load_json('Regions.json')
             regions[user_id] = {
-                'prefecture': '愛知県',
-                'city': city
+                'region': region
             }
             save_json('Regions.json', regions)
         
@@ -290,11 +321,11 @@ def profile():
     regions = load_json('Regions.json')
     tags = load_json('Tags.json')
     
-    current_region = regions.get(user_id, {'prefecture': '愛知県', 'city': '豊田市'})
+    current_region = regions.get(user_id, {'region': '東海3県'})
     current_tags = tags.get(user_id, TAGS.copy())
     
     return render_template('profile.html', 
-                         cities=AICHI_CITIES, 
+                         regions=REGIONS, 
                          all_tags=TAGS, 
                          current_region=current_region, 
                          current_tags=current_tags)
@@ -303,6 +334,23 @@ def profile():
 def logout():
     session.clear()
     return redirect(url_for('login'))
+
+@app.route('/debug')
+def debug():
+    """デバッグ用: JSONファイルの状態を確認"""
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    
+    debug_info = {
+        'users': load_json('Userdata.json'),
+        'posts': load_json('Posts.json'),
+        'comments': load_json('Comments.json'),
+        'likes': load_json('Likes.json'),
+        'regions': load_json('Regions.json'),
+        'tags': load_json('Tags.json')
+    }
+    
+    return jsonify(debug_info)
 
 @app.route('/add_comment', methods=['POST'])
 def add_comment():
@@ -371,5 +419,4 @@ def toggle_like():
     })
 
 if __name__ == '__main__':
-    #app.run(debug=True, host='192.168.1.173', port=25575)  #kjserver公開用
-    app.run(debug=True,host='0.0.0.0', port=25575)
+    app.run(debug=True)

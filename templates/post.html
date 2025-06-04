@@ -38,18 +38,11 @@
     </div>
 
     <div class="form-group">
-        <label for="prefecture">県:</label>
-        <select id="prefecture" name="prefecture" required>
-            <option value="愛知県">愛知県</option>
-        </select>
-    </div>
-
-    <div class="form-group">
-        <label for="city">市町村:</label>
-        <select id="city" name="city" required>
+        <label for="region">地域:</label>
+        <select id="region" name="region" required>
             <option value="">選択してください</option>
-            {% for city in cities %}
-            <option value="{{ city }}">{{ city }}</option>
+            {% for region in regions %}
+            <option value="{{ region }}">{{ region }}</option>
             {% endfor %}
         </select>
     </div>

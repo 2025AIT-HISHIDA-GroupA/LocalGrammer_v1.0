@@ -8,18 +8,12 @@
 <form method="POST">
     <div class="form-group">
         <label>地域設定</label>
-        <div style="margin-bottom: 10px;">
-            <label for="prefecture">県:</label>
-            <select id="prefecture" name="prefecture" disabled>
-                <option value="愛知県">愛知県</option>
-            </select>
-        </div>
         <div>
-            <label for="city">市町村:</label>
-            <select id="city" name="city" required>
-                {% for city in cities %}
-                <option value="{{ city }}" {% if city==current_region.city %}selected{% endif %}>
-                    {{ city }}
+            <label for="region">地域:</label>
+            <select id="region" name="region" required>
+                {% for region in regions %}
+                <option value="{{ region }}" {% if region==current_region.region %}selected{% endif %}>
+                    {{ region }}
                 </option>
                 {% endfor %}
             </select>
