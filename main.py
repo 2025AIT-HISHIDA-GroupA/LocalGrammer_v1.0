@@ -56,17 +56,19 @@ init_json_files()
 
 # 広域エリアリスト
 REGIONS = [
-    '東海3県',
+    '東海圏',
     '首都圏', 
     '関西圏',
-    '九州・沖縄',
-    '北海道・東北',
+    '九州',
+    '沖縄',
+    '北海道',
+    '東北',
     '中国・四国',
     '北陸・甲信越'
 ]
 
 # タグリスト
-TAGS = ['景色', '動物', 'スイーツ', '映え']
+TAGS = ['景色', '動物', 'スイーツ', '映え', '料理', 'スポーツ']
 
 def load_json(filename):
     try:
@@ -128,8 +130,14 @@ def register():
         username = request.form['username']
         password = request.form['password']
         
-        user_id = str(uuid.uuid4())
         users = load_json('Userdata.json')
+        
+        # ユーザー名がすでに存在するか確認
+        if any(user_data['username'] == username for user_data in users.values()):
+            flash('すでに登録済みのIDです。別のIDを使用してください。', 'error')
+            return render_template('register.html')
+        
+        user_id = str(uuid.uuid4())
         
         users[user_id] = {
             'username': username,
@@ -142,8 +150,7 @@ def register():
         # 初期プロフィール設定
         regions = load_json('Regions.json')
         regions[user_id] = {
-            'prefecture': '愛知県',
-            'city': '豊田市'
+            'region': '東海圏'
         }
         save_json('Regions.json', regions)
         
@@ -152,6 +159,7 @@ def register():
         save_json('Tags.json', tags)
         
         flash('ユーザ情報が登録されました', 'success')
+        return redirect(url_for('login'))
     
     return render_template('register.html')
 
@@ -321,7 +329,7 @@ def profile():
     regions = load_json('Regions.json')
     tags = load_json('Tags.json')
     
-    current_region = regions.get(user_id, {'region': '東海3県'})
+    current_region = regions.get(user_id, {'region': '東海圏'})
     current_tags = tags.get(user_id, TAGS.copy())
     
     return render_template('profile.html', 
@@ -432,6 +440,62 @@ def toggle_like():
         'like_count': len(likes[post_id]),
         'action': action
     })
+
+@app.route('/delete_post', methods=['POST'])
+def delete_post():
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'message': 'ログインが必要です'})
+    
+    post_id = request.form.get('post_id')
+    user_id = session['user_id']
+    
+    if not post_id:
+        return jsonify({'success': False, 'message': '投稿IDが無効です'})
+    
+    # 投稿を取得
+    posts = load_json('Posts.json')
+    post_to_delete = None
+    post_index = -1
+    
+    for i, post in enumerate(posts):
+        if post['id'] == post_id:
+            post_to_delete = post
+            post_index = i
+            break
+    
+    if not post_to_delete:
+        return jsonify({'success': False, 'message': '投稿が見つかりません'})
+    
+    # 投稿者本人または管理者のみ削除可能
+    if post_to_delete['user_id'] != user_id:
+        return jsonify({'success': False, 'message': '削除権限がありません'})
+    
+    # 投稿に関連する画像ファイルを削除
+    if 'images' in post_to_delete and post_to_delete['images']:
+        for image_filename in post_to_delete['images']:
+            image_path = os.path.join(app.config['UPLOAD_FOLDER'], image_filename)
+            try:
+                if os.path.exists(image_path):
+                    os.remove(image_path)
+            except Exception as e:
+                print(f"画像削除エラー: {e}")
+    
+    # 投稿を削除
+    posts.pop(post_index)
+    save_json('Posts.json', posts)
+    
+    # 関連するコメントを削除
+    comments = load_json('Comments.json')
+    comments = [c for c in comments if c['post_id'] != post_id]
+    save_json('Comments.json', comments)
+    
+    # 関連するいいねを削除
+    likes = load_json('Likes.json')
+    if post_id in likes:
+        del likes[post_id]
+        save_json('Likes.json', likes)
+    
+    return jsonify({'success': True, 'message': '投稿を削除しました'})
 
 if __name__ == '__main__':
     app.run(debug=True)
