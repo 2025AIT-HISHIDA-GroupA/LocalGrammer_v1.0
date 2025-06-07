@@ -335,6 +335,21 @@ def logout():
     session.clear()
     return redirect(url_for('login'))
 
+# 地図表示用のルート
+@app.route('/map/<region>')
+def show_map(region):
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    
+    posts = load_json('Posts.json')
+    region_posts = [
+        post for post in posts
+        if post.get('region') and post['region']['region'] == region
+        and post.get('latitude') and post.get('longitude')
+    ]
+    return render_template('map.html', region=region, posts=region_posts)
+
+
 @app.route('/debug')
 def debug():
     """デバッグ用: JSONファイルの状態を確認"""

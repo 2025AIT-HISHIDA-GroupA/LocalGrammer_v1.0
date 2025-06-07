@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>{{ region }}の投稿マップ</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    #map { height: 600px; width: 100%; }
+  </style>
+</head>
+<body>
+  <h1>{{ region }}の投稿マップ</h1>
+  <div id="map"></div>
+  <a href="{{ url_for('home') }}">← ホームに戻る</a>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+
+  // 地域ごとの中心座標
+  const regionCenters = {
+    '東海3県': [35.1803, 136.9066], // 愛知県庁
+    '首都圏': [35.6895, 139.6917],  // 東京
+    '関西圏': [34.6937, 135.5023],  // 大阪
+    '九州・沖縄': [33.5902, 130.4017], // 福岡
+    '北海道・東北': [43.0642, 141.3469], // 札幌
+    '中国・四国': [34.3963, 132.4596], // 広島
+    '北陸・甲信越': [36.6513, 138.1812] // 長野
+  };
+
+  // Jinjaから渡された地域名
+  const regionName = "{{ region }}";
+  const center = regionCenters[regionName] || [35.6895, 139.6917]; // デフォルトは東京
+
+  const map = L.map('map').setView(center, 10);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap contributors'
+  }).addTo(map);
+
+  const posts = {{ posts | tojson }};
+  
+  posts.forEach(post => {
+    const lat = parseFloat(post.latitude);
+    const lon = parseFloat(post.longitude);
+
+    let imgHtml = '';
+    if (post.images && post.images.length > 0) {
+      imgHtml = `<img src="/static/uploads/${post.images[0]}" width="100">`;
+    }
+
+    const popupContent = `
+      <strong>${post.username}</strong><br>
+      タグ: ${post.tag}<br>
+      ${imgHtml}
+    `;
+
+    L.marker([lat, lon])
+      .addTo(map)
+      .bindPopup(popupContent);
+  });
+</script>
+</body>
+</html>
+
