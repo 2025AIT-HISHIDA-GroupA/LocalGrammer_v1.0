@@ -9,6 +9,14 @@
     <div class="form-group">
         <label for="username">ID:</label>
         <input type="text" id="username" name="username" required>
+        <!-- エラーメッセージをID入力欄の下に表示 -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}
+        {% if category == 'error' %}
+        <p style="color: red; font-size: 0.9em; margin-top: 5px;">{{ message }}</p>
+        {% endif %}
+        {% endfor %}
+        {% endwith %}
     </div>
 
     <div class="form-group">

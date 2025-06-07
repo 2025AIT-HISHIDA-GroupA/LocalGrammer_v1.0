@@ -68,7 +68,7 @@ REGIONS = [
 ]
 
 # タグリスト
-TAGS = ['景色', '動物', 'スイーツ', '映え','料理', 'スポーツ']
+TAGS = ['景色', '動物', 'スイーツ', '映え', '料理', 'スポーツ']
 
 def load_json(filename):
     try:
@@ -138,6 +138,7 @@ def register():
             return render_template('register.html')
         
         user_id = str(uuid.uuid4())
+        
         users[user_id] = {
             'username': username,
             'password': password,
@@ -342,6 +343,21 @@ def logout():
     session.clear()
     return redirect(url_for('login'))
 
+# 地図表示用のルート
+@app.route('/map/<region>')
+def show_map(region):
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    
+    posts = load_json('Posts.json')
+    region_posts = [
+        post for post in posts
+        if post.get('region') and post['region']['region'] == region
+        and post.get('latitude') and post.get('longitude')
+    ]
+    return render_template('map.html', region=region, posts=region_posts)
+
+
 @app.route('/debug')
 def debug():
     """デバッグ用: JSONファイルの状態を確認"""
@@ -424,6 +440,62 @@ def toggle_like():
         'like_count': len(likes[post_id]),
         'action': action
     })
+
+@app.route('/delete_post', methods=['POST'])
+def delete_post():
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'message': 'ログインが必要です'})
+    
+    post_id = request.form.get('post_id')
+    user_id = session['user_id']
+    
+    if not post_id:
+        return jsonify({'success': False, 'message': '投稿IDが無効です'})
+    
+    # 投稿を取得
+    posts = load_json('Posts.json')
+    post_to_delete = None
+    post_index = -1
+    
+    for i, post in enumerate(posts):
+        if post['id'] == post_id:
+            post_to_delete = post
+            post_index = i
+            break
+    
+    if not post_to_delete:
+        return jsonify({'success': False, 'message': '投稿が見つかりません'})
+    
+    # 投稿者本人または管理者のみ削除可能
+    if post_to_delete['user_id'] != user_id:
+        return jsonify({'success': False, 'message': '削除権限がありません'})
+    
+    # 投稿に関連する画像ファイルを削除
+    if 'images' in post_to_delete and post_to_delete['images']:
+        for image_filename in post_to_delete['images']:
+            image_path = os.path.join(app.config['UPLOAD_FOLDER'], image_filename)
+            try:
+                if os.path.exists(image_path):
+                    os.remove(image_path)
+            except Exception as e:
+                print(f"画像削除エラー: {e}")
+    
+    # 投稿を削除
+    posts.pop(post_index)
+    save_json('Posts.json', posts)
+    
+    # 関連するコメントを削除
+    comments = load_json('Comments.json')
+    comments = [c for c in comments if c['post_id'] != post_id]
+    save_json('Comments.json', comments)
+    
+    # 関連するいいねを削除
+    likes = load_json('Likes.json')
+    if post_id in likes:
+        del likes[post_id]
+        save_json('Likes.json', likes)
+    
+    return jsonify({'success': True, 'message': '投稿を削除しました'})
 
 if __name__ == '__main__':
     app.run(debug=True)
