@@ -38,13 +38,52 @@
     <div class="post-actions"
         style="margin-top: 15px; padding-top: 10px; border-top: 1px solid #eee; display: flex; gap: 20px; align-items: center;">
         <span style="color: #666;">👍 {{ post.like_count }} </span>
-        <span style="color: #666;">💬 {{ post.comment_count }} コメント</span>
+
+        <button onclick="toggleComments('{{ post.id }}')"
+            style="background: #f0f0f0; color: #333; border: none; padding: 8px 15px; border-radius: 20px; cursor: pointer;">
+            💬 {{ post.comment_count }} コメント
+        </button>
+    </div>
+
+    <!-- コメントセクション -->
+    <div id="comments-{{ post.id }}"
+        style="display: none; margin-top: 15px; padding: 15px; background-color: #f9f9f9; border-radius: 8px;">
+        <!-- 既存のコメント表示 -->
+        <div id="existing-comments-{{ post.id }}">
+            {% if post.comments %}
+            <h4 style="margin-top: 0; margin-bottom: 15px; color: #333;">コメント一覧</h4>
+            {% for comment in post.comments %}
+            <div class="comment"
+                style="margin-bottom: 10px; padding: 10px; background-color: #ffffff; border-radius: 5px; border-left: 3px solid #007bff;">
+                <div style="font-weight: bold; color: #007bff; font-size: 0.9em;">{{ comment.username }}</div>
+                <div style="margin-top: 5px;">{{ comment.comment }}</div>
+                <div style="font-size: 0.8em; color: #666; margin-top: 5px;">{{ comment.created_at[:10] }}</div>
+            </div>
+            {% endfor %}
+            {% else %}
+            <p style="color: #666; font-style: italic; margin: 0;">まだコメントがありません</p>
+            {% endif %}
+        </div>
+
+        <!-- コメント入力フォーム -->
+        <form onsubmit="addComment(event, '{{ post.id }}')" style="margin-top: 15px;">
+            <div style="display: flex; gap: 10px; align-items: flex-end;">
+                <div style="flex: 1;">
+                    <textarea id="comment-input-{{ post.id }}" placeholder="コメントを入力..."
+                        style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; resize: vertical; min-height: 60px; box-sizing: border-box;"></textarea>
+                </div>
+                <button type="submit"
+                    style="background: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; white-space: nowrap;">
+                    送信
+                </button>
+            </div>
+        </form>
     </div>
 </div>
 {% endfor %}
 {% else %}
 <p>まだ投稿がありません。</p>
-<a href="{{ url_for('post') }}" class="btn">最初の投稿をする</a>
+<a href="{{ url_for('posts.post') }}" class="btn">最初の投稿をする</a>
 {% endif %}
 
 <!-- 画像拡大表示用のモーダル -->
@@ -72,6 +111,15 @@
             closeImageModal();
         }
     });
+
+    function toggleComments(postId) {
+        const commentsSection = document.getElementById('comments-' + postId);
+        if (commentsSection.style.display === 'none') {
+            commentsSection.style.display = 'block';
+        } else {
+            commentsSection.style.display = 'none';
+        }
+    }
 
     // 投稿削除機能
     function deletePost(postId) {
@@ -103,6 +151,73 @@
                     }
                 } else {
                     alert('削除に失敗しました: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('エラーが発生しました');
+            });
+    }
+
+    function addComment(event, postId) {
+        event.preventDefault();
+
+        const commentInput = document.getElementById('comment-input-' + postId);
+        const commentText = commentInput.value.trim();
+
+        if (!commentText) {
+            alert('コメントを入力してください');
+            return;
+        }
+
+        fetch('/add_comment', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: 'post_id=' + encodeURIComponent(postId) + '&comment_text=' + encodeURIComponent(commentText)
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // コメントを表示エリアに追加
+                    const existingComments = document.getElementById('existing-comments-' + postId);
+
+                    // "まだコメントがありません"のメッセージを削除
+                    const noCommentsMsg = existingComments.querySelector('p[style*="font-style: italic"]');
+                    if (noCommentsMsg) {
+                        noCommentsMsg.remove();
+                    }
+
+                    // タイトルがない場合は追加
+                    if (!existingComments.querySelector('h4')) {
+                        const title = document.createElement('h4');
+                        title.style.cssText = 'margin-top: 0; margin-bottom: 15px; color: #333;';
+                        title.textContent = 'コメント一覧';
+                        existingComments.appendChild(title);
+                    }
+
+                    const newComment = document.createElement('div');
+                    newComment.className = 'comment';
+                    newComment.style.cssText = 'margin-bottom: 10px; padding: 10px; background-color: #ffffff; border-radius: 5px; border-left: 3px solid #007bff;';
+                    newComment.innerHTML = `
+                        <div style="font-weight: bold; color: #007bff; font-size: 0.9em;">${data.comment.username}</div>
+                        <div style="margin-top: 5px;">${data.comment.comment}</div>
+                        <div style="font-size: 0.8em; color: #666; margin-top: 5px;">${data.comment.created_at.substring(0, 10)}</div>
+                    `;
+                    existingComments.appendChild(newComment);
+
+                    // 入力フィールドをクリア
+                    commentInput.value = '';
+
+                    // コメント数を更新
+                    const commentButton = document.querySelector(`button[onclick="toggleComments('${postId}')"]`);
+                    if (commentButton) {
+                        const currentCount = parseInt(commentButton.textContent.match(/\d+/)[0]);
+                        commentButton.innerHTML = `💬 ${currentCount + 1} コメント`;
+                    }
+                } else {
+                    alert(data.message);
                 }
             })
             .catch(error => {

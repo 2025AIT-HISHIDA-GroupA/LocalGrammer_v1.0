@@ -94,19 +94,6 @@
     "created_at": "2025-06-03T04:29:25.837584"
   },
   {
-    "id": "4a400a0f-5a06-48f0-8edf-0318f9e81ca9",
-    "user_id": "27c56993-8407-49af-afac-94a37c26aadf",
-    "username": "takaya",
-    "tag": "景色",
-    "region": {
-      "region": "首都圏"
-    },
-    "images": [
-      "f984bc22-ff43-452a-90d1-444d1dcb53f2_2024-03-30_01.38.57.png"
-    ],
-    "created_at": "2025-06-08T03:21:20.606303"
-  },
-  {
     "id": "e0eef707-a669-428f-ab33-ba640338e825",
     "user_id": "70ca50e7-d792-4b57-a067-85e9622e5d72",
     "username": "太郎",

@@ -37,11 +37,46 @@
             👍 <span id="like-count-{{ post.id }}">{{ post.like_count }}</span>
         </button>
 
-        <span style="color: #666;">💬 {{ post.comment_count }} コメント</span>
+        <button onclick="toggleComments('{{ post.id }}')"
+            style="background: #f0f0f0; color: #333; border: none; padding: 8px 15px; border-radius: 20px; cursor: pointer;">
+            💬 {{ post.comment_count }} コメント
+        </button>
+    </div>
+
+    <!-- コメントセクション -->
+    <div id="comments-{{ post.id }}"
+        style="display: none; margin-top: 15px; padding: 15px; background-color: #f9f9f9; border-radius: 8px;">
+        <!-- 既存のコメント表示 -->
+        <div id="existing-comments-{{ post.id }}">
+            {% if post.comments %}
+            {% for comment in post.comments %}
+            <div class="comment"
+                style="margin-bottom: 10px; padding: 10px; background-color: #ffffff; border-radius: 5px; border-left: 3px solid #007bff;">
+                <div style="font-weight: bold; color: #007bff; font-size: 0.9em;">{{ comment.username }}</div>
+                <div style="margin-top: 5px;">{{ comment.comment }}</div>
+                <div style="font-size: 0.8em; color: #666; margin-top: 5px;">{{ comment.created_at[:10] }}</div>
+            </div>
+            {% endfor %}
+            {% endif %}
+        </div>
+
+        <!-- コメント入力フォーム -->
+        <form onsubmit="addComment(event, '{{ post.id }}')" style="margin-top: 15px;">
+            <div style="display: flex; gap: 10px; align-items: flex-end;">
+                <div style="flex: 1;">
+                    <textarea id="comment-input-{{ post.id }}" placeholder="コメントを入力..."
+                        style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; resize: vertical; min-height: 60px; box-sizing: border-box;"></textarea>
+                </div>
+                <button type="submit"
+                    style="background: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; white-space: nowrap;">
+                    送信
+                </button>
+            </div>
+        </form>
     </div>
 
     <!-- 地図表示ボタン -->
-    <a href="{{ url_for('show_map', region=post.region.region) }}"
+    <a href="{{ url_for('main.show_map', region=post.region.region) }}"
         style="display: inline-block; margin-top: 10px; padding: 5px 10px; background: #007bff; color: white; text-decoration: none; border-radius: 5px;">
         地図を表示
     </a>
@@ -69,6 +104,13 @@
     function closeImageModal() {
         document.getElementById('imageModal').style.display = 'none';
     }
+
+    // ESCキーでモーダルを閉じる
+    document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape') {
+            closeImageModal();
+        }
+    });
 
     function toggleComments(postId) {
         const commentsSection = document.getElementById('comments-' + postId);
@@ -137,19 +179,23 @@
                     const existingComments = document.getElementById('existing-comments-' + postId);
                     const newComment = document.createElement('div');
                     newComment.className = 'comment';
-                    newComment.style.cssText = 'margin-bottom: 10px; padding: 10px; background-color: #f9f9f9; border-radius: 5px;';
+                    newComment.style.cssText = 'margin-bottom: 10px; padding: 10px; background-color: #ffffff; border-radius: 5px; border-left: 3px solid #007bff;';
                     newComment.innerHTML = `
-                <div style="font-weight: bold; color: #007bff; font-size: 0.9em;">${data.comment.username}</div>
-                <div style="margin-top: 5px;">${data.comment.comment}</div>
-                <div style="font-size: 0.8em; color: #666; margin-top: 5px;">${data.comment.created_at.substring(0, 10)}</div>
-            `;
+                        <div style="font-weight: bold; color: #007bff; font-size: 0.9em;">${data.comment.username}</div>
+                        <div style="margin-top: 5px;">${data.comment.comment}</div>
+                        <div style="font-size: 0.8em; color: #666; margin-top: 5px;">${data.comment.created_at.substring(0, 10)}</div>
+                    `;
                     existingComments.appendChild(newComment);
 
                     // 入力フィールドをクリア
                     commentInput.value = '';
 
-                    // ページをリロードしてコメント数を更新
-                    location.reload();
+                    // コメント数を更新（リロードせずに）
+                    const commentButton = document.querySelector(`button[onclick="toggleComments('${postId}')"]`);
+                    if (commentButton) {
+                        const currentCount = parseInt(commentButton.textContent.match(/\d+/)[0]);
+                        commentButton.innerHTML = `💬 ${currentCount + 1} コメント`;
+                    }
                 } else {
                     alert(data.message);
                 }

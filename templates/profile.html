@@ -33,7 +33,10 @@
         </div>
     </div>
 
-    <button type="submit" class="btn">保存</button>
-    <a href="{{ url_for('home') }}" class="btn btn-secondary">キャンセル</a>
+    <div style="display: flex; gap: 15px; margin-top: 20px;">
+        <button type="submit" class="btn" style="min-width: 120px;">保存</button>
+        <a href="{{ url_for('main.home') }}" class="btn btn-secondary"
+            style="min-width: 120px; text-align: center;">キャンセル</a>
+    </div>
 </form>
 {% endblock %}
