@@ -76,6 +76,9 @@
             cursor: pointer;
             text-decoration: none;
             display: inline-block;
+            text-align: center;
+            min-width: 80px;
+            box-sizing: border-box;
         }
 
         .btn:hover {
@@ -147,13 +150,14 @@
         {% if session.user_id %}
         <div class="header">
             <div class="nav-links">
-                <a href="{{ url_for('home') }}">ホーム</a>
-                <a href="{{ url_for('diary') }}">日記</a>
-                <a href="{{ url_for('profile') }}">プロフィール</a>
-                <a href="{{ url_for('logout') }}">ログアウト</a>
+                <a href="{{ url_for('main.home') }}">ホーム</a>
+                <a href="{{ url_for('main.diary') }}">日記</a>
+                <a href="{{ url_for('main.profile') }}">プロフィール</a>
+                <a href="{{ url_for('auth.logout') }}">ログアウト</a>
             </div>
-            <div>
-                <a href="{{ url_for('post') }}" class="btn" style="margin-right: 10px;">+</a>
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <a href="{{ url_for('posts.post') }}" class="btn"
+                    style="width: 40px; height: 40px; min-width: auto; padding: 0; display: flex; align-items: center; justify-content: center; border-radius: 8px;">+</a>
                 <span>{{ session.username }}</span>
             </div>
         </div>
