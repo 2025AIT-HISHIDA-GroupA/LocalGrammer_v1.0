@@ -33,6 +33,11 @@ def init_json_files():
     if not os.path.exists('Likes.json'):
         with open('Likes.json', 'w', encoding='utf-8') as f:
             json.dump({}, f, ensure_ascii=False, indent=2)
+    
+    # Coordinates.json (位置情報)
+    if not os.path.exists('Coordinates.json'):
+        with open('Coordinates.json', 'w', encoding='utf-8') as f:
+            json.dump({}, f, ensure_ascii=False, indent=2)
 
 def load_json(filename):
     """JSONファイルを読み込み"""

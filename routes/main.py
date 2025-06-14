@@ -122,11 +122,20 @@ def show_map(region):
         return redirect(url_for('auth.login'))
     
     posts = load_json('Posts.json')
-    region_posts = [
-        post for post in posts
-        if post.get('region') and post['region']['region'] == region
-        and post.get('latitude') and post.get('longitude')
-    ]
+    coordinates = load_json('Coordinates.json')
+    
+    # 指定された地域の投稿で、座標情報があるもののみを取得
+    region_posts = []
+    for post in posts:
+        if (post.get('region') and post['region']['region'] == region 
+            and post['id'] in coordinates):
+            # 投稿に座標情報を追加
+            coord_data = coordinates[post['id']]
+            post['latitude'] = coord_data['latitude']
+            post['longitude'] = coord_data['longitude']
+            post['coordinate_source'] = coord_data.get('source', 'unknown')
+            region_posts.append(post)
+    
     return render_template('map.html', region=region, posts=region_posts)
 
 @main_bp.route('/debug')

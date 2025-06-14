@@ -49,20 +49,30 @@
       const lat = parseFloat(post.latitude);
       const lon = parseFloat(post.longitude);
 
-      let imgHtml = '';
-      if (post.images && post.images.length > 0) {
-        imgHtml = `<img src="/static/uploads/${post.images[0]}" width="100">`;
+      if (!isNaN(lat) && !isNaN(lon)) {
+        let imgHtml = '';
+        if (post.images && post.images.length > 0) {
+          imgHtml = `<img src="/static/uploads/${post.images[0]}" width="100" style="border-radius: 4px;">`;
+        }
+
+        const sourceIcon = post.coordinate_source === 'manual' ? '📍' : '📷';
+        const sourceText = post.coordinate_source === 'manual' ? '手動設定' : '画像から取得';
+
+        const popupContent = `
+        <div style="min-width: 200px;">
+          <strong>${post.username}</strong><br>
+          <span style="color: #666;">タグ: ${post.tag}</span><br>
+          <span style="color: #666; font-size: 0.8em;">${sourceIcon} ${sourceText}</span><br>
+          <div style="margin-top: 8px;">${imgHtml}</div>
+        </div>
+        `;
+
+        // 座標ソースに応じてマーカーの色を変更
+        let markerColor = post.coordinate_source === 'manual' ? 'red' : 'blue';
+
+        const marker = L.marker([lat, lon]);
+        marker.addTo(map).bindPopup(popupContent);
       }
-
-      const popupContent = `
-      <strong>${post.username}</strong><br>
-      タグ: ${post.tag}<br>
-      ${imgHtml}
-    `;
-
-      L.marker([lat, lon])
-        .addTo(map)
-        .bindPopup(popupContent);
     });
   </script>
 </body>

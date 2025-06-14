@@ -3,8 +3,20 @@ import uuid
 import os
 from datetime import datetime
 from utils.json_utils import load_json, save_json
-from utils.file_utils import save_uploaded_file, delete_file
-from config import REGIONS, TAGS
+from utils.file_utils import save_uploaded_file, delete_file, allowed_file
+from utils.image_utils import extract_coordinates_from_uploaded_images
+from utils.location_utils import get_region_info
+from config import REGIONS, TAGS, REGION_DEFAULT_COORDINATES
+from werkzeug.utils import secure_filename
+
+def get_region_auto_selection(latitude, longitude):
+    """座標から地域自動選択情報を取得"""
+    region_info = get_region_info(latitude, longitude)
+    return {
+        'suggested_region': region_info['region'],
+        'auto_detected': region_info['detected'],
+        'confidence': region_info['confidence']
+    }
 
 posts_bp = Blueprint('posts', __name__)
 
@@ -17,6 +29,10 @@ def post():
     if request.method == 'POST':
         tag = request.form['tag']
         region = request.form['region']
+        
+        # 手動設定された座標を取得
+        manual_lat = request.form.get('manual_lat')
+        manual_lng = request.form.get('manual_lng')
         
         # 画像ファイルの処理
         uploaded_images = []
@@ -33,9 +49,41 @@ def post():
                 except Exception as e:
                     flash(f'画像{i}のアップロードに失敗しました: {str(e)}', 'error')
         
+        # 位置情報の取得
+        latitude = None
+        longitude = None
+        coordinate_source = None
+        
+        # 手動設定の座標が優先
+        if manual_lat and manual_lng:
+            try:
+                latitude = float(manual_lat)
+                longitude = float(manual_lng)
+                coordinate_source = 'manual'
+            except ValueError:
+                flash('座標の形式が正しくありません', 'error')
+                return render_template('post.html', regions=REGIONS, tags=TAGS, 
+                                     region_coordinates=REGION_DEFAULT_COORDINATES)
+        else:
+            # 画像から位置情報を抽出
+            if uploaded_images:
+                coordinates = extract_coordinates_from_uploaded_images(
+                    uploaded_images, current_app.config['UPLOAD_FOLDER']
+                )
+                if coordinates:
+                    latitude, longitude = coordinates
+                    coordinate_source = 'exif'
+        
+        # 位置情報が設定されていない場合はエラー
+        if latitude is None or longitude is None:
+            flash('位置情報が設定されていません。地図上でピンを設定するか、位置情報付きの画像をアップロードしてください。', 'error')
+            return render_template('post.html', regions=REGIONS, tags=TAGS, 
+                                 region_coordinates=REGION_DEFAULT_COORDINATES)
+        
         # 投稿データを作成
+        post_id = str(uuid.uuid4())
         post_data = {
-            'id': str(uuid.uuid4()),
+            'id': post_id,
             'user_id': session['user_id'],
             'username': session['username'],
             'tag': tag,
@@ -50,10 +98,21 @@ def post():
         posts.insert(0, post_data)  # 最新の投稿を先頭に追加
         save_json('Posts.json', posts)
         
+        # 座標情報を保存
+        coordinates = load_json('Coordinates.json')
+        coordinates[post_id] = {
+            'latitude': latitude,
+            'longitude': longitude,
+            'source': coordinate_source,  # 'manual' または 'exif'
+            'created_at': datetime.now().isoformat()
+        }
+        save_json('Coordinates.json', coordinates)
+        
         flash('ポストしました。', 'success')
         return redirect(url_for('main.home'))
     
-    return render_template('post.html', regions=REGIONS, tags=TAGS)
+    return render_template('post.html', regions=REGIONS, tags=TAGS, 
+                         region_coordinates=REGION_DEFAULT_COORDINATES)
 
 @posts_bp.route('/add_comment', methods=['POST'])
 def add_comment():
@@ -173,4 +232,81 @@ def delete_post():
         del likes[post_id]
         save_json('Likes.json', likes)
     
+    # 関連する座標情報を削除
+    coordinates = load_json('Coordinates.json')
+    if post_id in coordinates:
+        del coordinates[post_id]
+        save_json('Coordinates.json', coordinates)
+    
     return jsonify({'success': True, 'message': '投稿を削除しました'})
+
+@posts_bp.route('/check_image_coordinates', methods=['POST'])
+def check_image_coordinates():
+    """アップロードされた画像から位置情報を抽出するAPI"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'message': 'ログインが必要です'})
+    
+    if 'image' not in request.files:
+        return jsonify({'success': False, 'message': '画像ファイルが必要です'})
+    
+    file = request.files['image']
+    if file.filename == '':
+        return jsonify({'success': False, 'message': '画像ファイルが選択されていません'})
+    
+    if not allowed_file(file.filename):
+        return jsonify({'success': False, 'message': '許可されていないファイル形式です'})
+    
+    temp_path = None
+    try:
+        # 一時的にファイルを保存して位置情報を抽出
+        temp_filename = f"temp_{uuid.uuid4()}_{secure_filename(file.filename)}"
+        temp_path = os.path.join(current_app.config['UPLOAD_FOLDER'], temp_filename)
+        
+        print(f"一時ファイル保存: {temp_path}")
+        file.save(temp_path)
+        
+        # ファイルサイズとタイプを確認
+        file_size = os.path.getsize(temp_path)
+        print(f"ファイルサイズ: {file_size} bytes")
+        
+        # 位置情報を抽出
+        from utils.image_utils import get_coordinates_from_image
+        print("位置情報抽出を開始...")
+        coordinates = get_coordinates_from_image(temp_path)
+        print(f"抽出結果: {coordinates}")
+        
+        # 一時ファイルを削除
+        os.remove(temp_path)
+        temp_path = None
+        
+        if coordinates:
+            latitude, longitude = coordinates
+            return jsonify({
+                'success': True,
+                'has_coordinates': True,
+                'latitude': latitude,
+                'longitude': longitude,
+                'message': f'画像から位置情報を検出しました (緯度: {latitude:.6f}, 経度: {longitude:.6f})',
+                'region_info': get_region_auto_selection(latitude, longitude)
+            })
+        else:
+            print("位置情報なし")
+            return jsonify({
+                'success': True,
+                'has_coordinates': False,
+                'message': '画像に位置情報が含まれていません'
+            })
+            
+    except Exception as e:
+        print(f"エラー発生: {e}")
+        import traceback
+        traceback.print_exc()
+        
+        # エラー時は一時ファイルを削除
+        if temp_path and os.path.exists(temp_path):
+            os.remove(temp_path)
+        
+        return jsonify({
+            'success': False,
+            'message': f'画像の処理中にエラーが発生しました: {str(e)}'
+        })

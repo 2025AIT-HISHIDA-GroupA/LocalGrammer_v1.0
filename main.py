@@ -27,4 +27,4 @@ def create_app():
 
 if __name__ == '__main__':
     app = create_app()
-    app.run(debug=True, port=5002)
+    app.run(debug=True, port=5002,host='192.168.1.173')
