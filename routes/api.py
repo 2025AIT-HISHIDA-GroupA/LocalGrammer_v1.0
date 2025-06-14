@@ -12,6 +12,7 @@ def get_post_details(post, user_id):
     """ヘルパー関数: 投稿にコメントといいねの詳細を追加"""
     comments = load_json('Comments.json')
     likes = load_json('Likes.json')
+    coordinates = load_json('Coordinates.json')
     
     post_id = post['id']
     
@@ -22,6 +23,13 @@ def get_post_details(post, user_id):
     post_likes = likes.get(post_id, [])
     post['like_count'] = len(post_likes)
     post['user_liked'] = user_id in post_likes
+    
+    # 座標情報を追加
+    if post_id in coordinates:
+        coord_data = coordinates[post_id]
+        post['latitude'] = coord_data['latitude']
+        post['longitude'] = coord_data['longitude']
+        post['coordinate_source'] = coord_data.get('source', 'unknown')
     
     return post
 

@@ -5,26 +5,31 @@
 {% block content %}
 <h2>新しい投稿</h2>
 
-<form method="POST" enctype="multipart/form-data">
+<form method="POST" enctype="multipart/form-data" id="postForm">
     <div class="form-group">
         <label>画像をアップロード (最大4枚):</label>
         <div style="margin-bottom: 10px;">
-            <input type="file" id="image1" name="image1" accept="image/*">
+            <input type="file" id="image1" name="image1" accept="image/*" onchange="checkImageCoordinates(this)">
             <label for="image1" style="font-weight: normal; margin-left: 5px;">画像1</label>
         </div>
         <div style="margin-bottom: 10px;">
-            <input type="file" id="image2" name="image2" accept="image/*">
+            <input type="file" id="image2" name="image2" accept="image/*" onchange="checkImageCoordinates(this)">
             <label for="image2" style="font-weight: normal; margin-left: 5px;">画像2</label>
         </div>
         <div style="margin-bottom: 10px;">
-            <input type="file" id="image3" name="image3" accept="image/*">
+            <input type="file" id="image3" name="image3" accept="image/*" onchange="checkImageCoordinates(this)">
             <label for="image3" style="font-weight: normal; margin-left: 5px;">画像3</label>
         </div>
         <div style="margin-bottom: 10px;">
-            <input type="file" id="image4" name="image4" accept="image/*">
+            <input type="file" id="image4" name="image4" accept="image/*" onchange="checkImageCoordinates(this)">
             <label for="image4" style="font-weight: normal; margin-left: 5px;">画像4</label>
         </div>
         <small style="color: #666;">対応形式: PNG, JPG, JPEG, GIF, WebP</small>
+        <div id="imageCoordinateInfo"
+            style="margin-top: 10px; padding: 10px; background-color: #e7f3ff; border-radius: 4px; display: none;">
+            <strong>📍 画像から位置情報を検出しました！</strong>
+            <div id="detectedCoordinates"></div>
+        </div>
     </div>
 
     <div class="form-group">
@@ -39,7 +44,7 @@
 
     <div class="form-group">
         <label for="region">地域:</label>
-        <select id="region" name="region" required>
+        <select id="region" name="region" required onchange="updateMapCenter()">
             <option value="">選択してください</option>
             {% for region in regions %}
             <option value="{{ region }}">{{ region }}</option>
@@ -47,43 +52,295 @@
         </select>
     </div>
 
+    <!-- 位置情報設定セクション -->
+    <div class="form-group">
+        <label>📍 位置情報設定 (必須):</label>
+        <div style="margin-bottom: 10px;">
+            <p style="color: #666; font-size: 0.9em;">
+                地図上でクリックして投稿場所を設定してください。画像に位置情報が含まれている場合は自動で検出されます。
+            </p>
+        </div>
+
+        <!-- 地図表示エリア -->
+        <div id="map"
+            style="height: 400px; width: 100%; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 10px;"></div>
+
+        <!-- 座標表示・手動入力 -->
+        <div style="display: flex; gap: 15px; align-items: center; margin-bottom: 10px;">
+            <div>
+                <label for="manual_lat" style="font-size: 0.9em;">緯度:</label>
+                <input type="number" id="manual_lat" name="manual_lat" step="any" style="width: 120px;" readonly>
+            </div>
+            <div>
+                <label for="manual_lng" style="font-size: 0.9em;">経度:</label>
+                <input type="number" id="manual_lng" name="manual_lng" step="any" style="width: 120px;" readonly>
+            </div>
+            <button type="button" onclick="clearCoordinates()"
+                style="background: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer;">
+                位置をリセット
+            </button>
+        </div>
+
+        <div id="coordinateStatus" style="padding: 8px; border-radius: 4px; font-size: 0.9em;">
+            <span style="color: #dc3545;">⚠️ 位置情報が設定されていません</span>
+        </div>
+    </div>
+
     <div style="display: flex; gap: 15px; margin-top: 20px;">
-        <button type="submit" class="btn" style="min-width: 120px;">投稿</button>
+        <button type="submit" class="btn" style="min-width: 120px;" id="submitBtn" disabled>投稿</button>
         <a href="{{ url_for('main.home') }}" class="btn btn-secondary"
             style="min-width: 120px; text-align: center;">キャンセル</a>
     </div>
 </form>
 
-<script>
-    // 画像プレビュー機能
-    function setupImagePreview(inputId) {
-        const input = document.getElementById(inputId);
-        input.addEventListener('change', function (e) {
-            const file = e.target.files[0];
-            if (file) {
-                // 既存のプレビューを削除
-                const existingPreview = document.getElementById(inputId + '_preview');
-                if (existingPreview) {
-                    existingPreview.remove();
-                }
+<!-- Leaflet CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-                // 新しいプレビューを作成
-                const reader = new FileReader();
-                reader.onload = function (e) {
-                    const preview = document.createElement('div');
-                    preview.id = inputId + '_preview';
-                    preview.innerHTML = `<img src="${e.target.result}" style="width: 100px; height: 100px; object-fit: cover; margin-top: 5px; border-radius: 4px;">`;
-                    input.parentElement.appendChild(preview);
-                };
-                reader.readAsDataURL(file);
-            }
+<script>
+    let map;
+    let currentMarker;
+    let hasCoordinates = false;
+
+    // 地域ごとのデフォルト座標
+    const regionCoordinates = {{ region_coordinates | tojson }};
+
+    // 地図初期化
+    function initMap() {
+        map = L.map('map').setView([35.1803, 136.9066], 10); // デフォルト: 名古屋
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        // 地図クリックイベント
+        map.on('click', function (e) {
+            setCoordinates(e.latlng.lat, e.latlng.lng, 'manual');
         });
     }
 
-    // 全ての画像入力にプレビュー機能を追加
-    setupImagePreview('image1');
-    setupImagePreview('image2');
-    setupImagePreview('image3');
-    setupImagePreview('image4');
+    // 座標設定
+    function setCoordinates(lat, lng, source) {
+        document.getElementById('manual_lat').value = lat.toFixed(6);
+        document.getElementById('manual_lng').value = lng.toFixed(6);
+
+        // マーカーを更新
+        if (currentMarker) {
+            map.removeLayer(currentMarker);
+        }
+
+        currentMarker = L.marker([lat, lng]).addTo(map);
+
+        // 手動設定の場合はズームレベルを変更しない
+        if (source === 'manual') {
+            // 現在のズームレベルを保持して中心のみ移動
+            const currentZoom = map.getZoom();
+            map.setView([lat, lng], currentZoom);
+        } else {
+            // 画像から自動検出の場合は詳細表示のためズームイン
+            map.setView([lat, lng], 15);
+        }
+
+        hasCoordinates = true;
+        updateCoordinateStatus(source);
+        updateSubmitButton();
+    }
+
+    // 座標ステータス更新
+    function updateCoordinateStatus(source) {
+        const statusDiv = document.getElementById('coordinateStatus');
+        if (hasCoordinates) {
+            const sourceText = source === 'manual' ? '手動設定' : '画像から自動検出';
+            statusDiv.innerHTML = '<span style="color: #28a745;">✅ 位置情報が設定されました (' + sourceText + ')</span>';
+        } else {
+            statusDiv.innerHTML = '<span style="color: #dc3545;">⚠️ 位置情報が設定されていません</span>';
+        }
+    }
+
+    // 投稿ボタンの状態更新
+    function updateSubmitButton() {
+        const submitBtn = document.getElementById('submitBtn');
+        if (hasCoordinates) {
+            submitBtn.disabled = false;
+            submitBtn.style.opacity = '1';
+        } else {
+            submitBtn.disabled = true;
+            submitBtn.style.opacity = '0.5';
+        }
+    }
+
+    // 座標クリア
+    function clearCoordinates() {
+        document.getElementById('manual_lat').value = '';
+        document.getElementById('manual_lng').value = '';
+
+        if (currentMarker) {
+            map.removeLayer(currentMarker);
+            currentMarker = null;
+        }
+
+        hasCoordinates = false;
+        updateCoordinateStatus();
+        updateSubmitButton();
+
+        // 画像座標情報も非表示
+        document.getElementById('imageCoordinateInfo').style.display = 'none';
+    }
+
+    // 地域変更時の地図中心更新
+    function updateMapCenter() {
+        const regionSelect = document.getElementById('region');
+        const selectedRegion = regionSelect.value;
+
+        if (selectedRegion && regionCoordinates[selectedRegion]) {
+            const coords = regionCoordinates[selectedRegion];
+            map.setView(coords, 10);
+        }
+    }
+
+    // 画像の位置情報チェック（サーバーサイド実装）
+    function checkImageCoordinates(input) {
+        setupImagePreview(input.id);
+
+        if (input.files && input.files[0]) {
+            const file = input.files[0];
+            const formData = new FormData();
+            formData.append('image', file);
+
+            // サーバーに画像を送信して位置情報をチェック
+            fetch('/check_image_coordinates', {
+                method: 'POST',
+                body: formData
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.has_coordinates) {
+                        showImageCoordinateInfo(data.latitude, data.longitude);
+                        setCoordinates(data.latitude, data.longitude, 'exif');
+
+                        // 地域自動選択
+                        if (data.region_info && data.region_info.suggested_region) {
+                            autoSelectRegion(data.region_info);
+                        }
+                    } else if (data.success && !data.has_coordinates) {
+                        // 位置情報なしの場合は何もしない（エラーメッセージも表示しない）
+                        console.log('画像に位置情報が含まれていません');
+                    } else {
+                        console.error('位置情報の取得に失敗しました:', data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('画像の位置情報チェック中にエラーが発生しました:', error);
+                });
+        }
+    }
+
+    // 地域自動選択
+    function autoSelectRegion(regionInfo) {
+        const regionSelect = document.getElementById('region');
+        const suggestedRegion = regionInfo.suggested_region;
+        const confidence = regionInfo.confidence;
+        const autoDetected = regionInfo.auto_detected;
+
+        console.log('地域自動選択:', regionInfo);
+
+        // 地域を自動選択
+        if (suggestedRegion) {
+            regionSelect.value = suggestedRegion;
+
+            // 地域変更イベントを発火（地図の中心を更新）
+            updateMapCenter();
+
+            // 自動選択の通知を表示
+            showRegionAutoSelection(suggestedRegion, confidence, autoDetected);
+        }
+    }
+
+    // 地域自動選択の通知表示
+    function showRegionAutoSelection(region, confidence, autoDetected) {
+        // 既存の通知があれば削除
+        const existingNotification = document.getElementById('regionAutoNotification');
+        if (existingNotification) {
+            existingNotification.remove();
+        }
+
+        const detectionText = autoDetected ? '🎯' : '🔍';
+        const bgColor = confidence === 'high' ? '#d4edda' : '#fff3cd';
+        const textColor = confidence === 'high' ? '#155724' : '#856404';
+
+        const notification = document.createElement('div');
+        notification.id = 'regionAutoNotification';
+        notification.style.cssText = `
+            margin-top: 10px; 
+            padding: 10px; 
+            background-color: ${bgColor}; 
+            border-radius: 4px; 
+            color: ${textColor};
+            border: 1px solid ${confidence === 'high' ? '#c3e6cb' : '#ffeaa7'};
+        `;
+        notification.innerHTML = `
+            <strong>${detectionText} 地域が自動選択されました</strong><br>
+            検出地域: <strong>${region}</strong>
+        `;
+
+        // 地域選択欄の下に通知を挿入
+        const regionFormGroup = document.getElementById('region').closest('.form-group');
+        regionFormGroup.appendChild(notification);
+
+        // 5秒後に通知を自動削除
+        setTimeout(() => {
+            if (notification && notification.parentNode) {
+                notification.remove();
+            }
+        }, 5000);
+    }
+
+    // 画像座標情報表示
+    function showImageCoordinateInfo(lat, lng) {
+        const infoDiv = document.getElementById('imageCoordinateInfo');
+        const coordDiv = document.getElementById('detectedCoordinates');
+
+        coordDiv.innerHTML = '緯度: ' + lat.toFixed(6) + ', 経度: ' + lng.toFixed(6);
+        infoDiv.style.display = 'block';
+    }
+
+    // 画像プレビュー機能
+    function setupImagePreview(inputId) {
+        const input = document.getElementById(inputId);
+        const file = input.files[0];
+
+        if (file) {
+            // 既存のプレビューを削除
+            const existingPreview = document.getElementById(inputId + '_preview');
+            if (existingPreview) {
+                existingPreview.remove();
+            }
+
+            // 新しいプレビューを作成
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                const preview = document.createElement('div');
+                preview.id = inputId + '_preview';
+                preview.innerHTML = '<img src="' + e.target.result + '" style="width: 100px; height: 100px; object-fit: cover; margin-top: 5px; border-radius: 4px;">';
+                input.parentElement.appendChild(preview);
+            };
+            reader.readAsDataURL(file);
+        }
+    }
+
+    // フォーム送信前のチェック
+    document.getElementById('postForm').addEventListener('submit', function (e) {
+        if (!hasCoordinates) {
+            e.preventDefault();
+            alert('位置情報を設定してください。地図上でクリックするか、位置情報付きの画像をアップロードしてください。');
+        }
+    });
+
+    // ページ読み込み時に地図初期化
+    document.addEventListener('DOMContentLoaded', function () {
+        initMap();
+        updateSubmitButton();
+    });
 </script>
 {% endblock %}
