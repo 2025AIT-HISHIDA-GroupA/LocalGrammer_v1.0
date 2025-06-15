@@ -4,7 +4,8 @@ import os
 from datetime import datetime
 from utils.json_utils import load_json, save_json
 from utils.file_utils import save_uploaded_file, delete_file
-from flask import send_from_directory
+from utils.location_utils import get_region_from_coordinates
+from utils.exif_utils import extract_gps_from_multiple_images
 from config import REGIONS, TAGS
 
 api_bp = Blueprint('api', __name__)
@@ -13,7 +14,6 @@ def get_post_details(post, user_id):
     """ヘルパー関数: 投稿にコメントといいねの詳細を追加"""
     comments = load_json('Comments.json')
     likes = load_json('Likes.json')
-    coordinates = load_json('Coordinates.json')
     
     post_id = post['id']
     
@@ -25,14 +25,80 @@ def get_post_details(post, user_id):
     post['like_count'] = len(post_likes)
     post['user_liked'] = user_id in post_likes
     
-    # 座標情報を追加
-    if post_id in coordinates:
-        coord_data = coordinates[post_id]
-        post['latitude'] = coord_data['latitude']
-        post['longitude'] = coord_data['longitude']
-        post['coordinate_source'] = coord_data.get('source', 'unknown')
-    
     return post
+
+@api_bp.route('/extract_gps_from_images', methods=['POST'])
+def api_extract_gps_from_images():
+    """API: 画像からGPS情報を抽出"""
+    temp_paths = []
+    try:
+        # アップロードされた画像を一時的に保存
+        for i in range(1, 5):
+            file_key = f'image{i}'
+            if file_key in request.files:
+                file = request.files[file_key]
+                if file and file.filename != '':
+                    # 一時ファイルとして保存
+                    temp_filename = f"temp_{uuid.uuid4()}_{file.filename}"
+                    temp_path = os.path.join(current_app.config['UPLOAD_FOLDER'], temp_filename)
+                    file.save(temp_path)
+                    temp_paths.append(temp_path)
+                    print(f"一時保存: {temp_path}")
+        
+        if not temp_paths:
+            return jsonify({'success': False, 'message': 'No images uploaded'}), 400
+        
+        print(f"処理する画像数: {len(temp_paths)}")
+        
+        # GPS情報を抽出
+        coordinates = extract_gps_from_multiple_images(temp_paths)
+        
+        if coordinates:
+            latitude, longitude = coordinates
+            print(f"GPS座標抽出成功: lat={latitude}, lon={longitude}")
+            return jsonify({
+                'success': True,
+                'latitude': latitude,
+                'longitude': longitude
+            })
+        else:
+            print("GPS情報が見つかりませんでした")
+            return jsonify({
+                'success': False,
+                'message': 'No GPS data found in images'
+            })
+            
+    except Exception as e:
+        print(f"GPS抽出エラー: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+    finally:
+        # 一時ファイルのクリーンアップ
+        for temp_path in temp_paths:
+            try:
+                if os.path.exists(temp_path):
+                    os.remove(temp_path)
+                    print(f"一時ファイル削除: {temp_path}")
+            except Exception as e:
+                print(f"一時ファイル削除エラー: {e}")
+
+@api_bp.route('/detect_region', methods=['POST'])
+def api_detect_region():
+    """API: 座標から地域を判定"""
+    data = request.get_json()
+    if not data:
+        return jsonify({'success': False, 'message': 'Request body must be JSON.'}), 400
+    
+    latitude = data.get('latitude')
+    longitude = data.get('longitude')
+    
+    if latitude is None or longitude is None:
+        return jsonify({'success': False, 'message': 'Latitude and longitude are required.'}), 400
+    
+    try:
+        region = get_region_from_coordinates(latitude, longitude)
+        return jsonify({'success': True, 'region': region})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
 
 @api_bp.route('/register', methods=['POST'])
 def api_register():
@@ -164,11 +230,16 @@ def api_create_post():
 
     tag = request.form.get('tag')
     region = request.form.get('region')
+    latitude = request.form.get('latitude')
+    longitude = request.form.get('longitude')
 
-    if not tag or not region:
-        return jsonify({'success': False, 'message': 'Tag and region are required.'}), 400
+    if not tag:
+        return jsonify({'success': False, 'message': 'Tag is required.'}), 400
 
+    # 画像ファイルの処理
     uploaded_images = []
+    uploaded_image_paths = []
+    
     for i in range(1, 5):
         file_key = f'image{i}'
         if file_key in request.files:
@@ -177,8 +248,26 @@ def api_create_post():
                 filename = save_uploaded_file(file, current_app.config['UPLOAD_FOLDER'])
                 if filename:
                     uploaded_images.append(filename)
+                    uploaded_image_paths.append(os.path.join(current_app.config['UPLOAD_FOLDER'], filename))
             except Exception as e:
                 return jsonify({'success': False, 'message': str(e)}), 400
+
+    # 座標が手動設定されていない場合、画像からGPS情報を抽出
+    if not latitude or not longitude:
+        if uploaded_image_paths:
+            coordinates = extract_gps_from_multiple_images(uploaded_image_paths)
+            if coordinates:
+                latitude, longitude = coordinates
+
+    # 座標がある場合は自動で地域を判定
+    if latitude and longitude and not region:
+        try:
+            region = get_region_from_coordinates(latitude, longitude)
+        except (ValueError, TypeError):
+            pass
+
+    if not region:
+        return jsonify({'success': False, 'message': 'Region is required or location permission needed.'}), 400
 
     post_data = {
         'id': str(uuid.uuid4()),
@@ -189,6 +278,14 @@ def api_create_post():
         'images': uploaded_images,
         'created_at': datetime.now().isoformat()
     }
+
+    # 座標情報があれば追加
+    if latitude and longitude:
+        try:
+            post_data['latitude'] = float(latitude)
+            post_data['longitude'] = float(longitude)
+        except (ValueError, TypeError):
+            pass
 
     posts = load_json('Posts.json')
     posts.insert(0, post_data)
@@ -268,14 +365,10 @@ def api_profile():
     current_region = regions.get(user_id, {'region': '東海圏'})
     current_tags = tags.get(user_id, TAGS.copy())
     
-    #return jsonify({
-    #    'region': current_region['region'],
-    #    'tags': current_tags,
-    #})
     return jsonify({
-    'current_region': current_region,
-    'current_tags': current_tags,
-})
+        'region': current_region['region'],
+        'tags': current_tags,
+    })
 
 @api_bp.route('/static_data')
 def api_static_data():
@@ -346,7 +439,78 @@ def api_add_comment(post_id):
         'message': 'Comment added successfully'
     }), 201
 
-@api_bp.route('/static/uploads/<filename>')
-def uploaded_file(filename):
-    """画像ファイル配信エンドポイント"""
-    return send_from_directory(current_app.config['UPLOAD_FOLDER'], filename)
+@api_bp.route('/extract_gps_from_single_image', methods=['POST'])
+def extract_gps_from_single_image():
+    """単一画像からGPS情報を抽出"""
+    try:
+        if 'image' not in request.files:
+            return jsonify({'success': False, 'message': '画像ファイルがありません'})
+        
+        image_file = request.files['image']
+        if image_file.filename == '':
+            return jsonify({'success': False, 'message': '画像が選択されていません'})
+        
+        # ファイル拡張子をチェック
+        allowed_extensions = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'tiff'}
+        file_extension = image_file.filename.lower().split('.')[-1]
+        if file_extension not in allowed_extensions:
+            return jsonify({'success': False, 'message': 'サポートされていないファイル形式です'})
+        
+        # 一時的にファイルを保存
+        from datetime import datetime
+        temp_filename = f"temp_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{image_file.filename}"
+        temp_path = os.path.join(current_app.config['UPLOAD_FOLDER'], temp_filename)
+        
+        # アップロードフォルダが存在することを確認
+        os.makedirs(current_app.config['UPLOAD_FOLDER'], exist_ok=True)
+        
+        image_file.save(temp_path)
+        print(f"一時ファイル保存: {temp_path}")
+        
+        try:
+            # GPS情報を抽出
+            from utils.exif_utils import extract_gps_from_image
+            gps_data = extract_gps_from_image(temp_path)
+            
+            print(f"抽出されたGPS情報: {gps_data}")
+            
+            if gps_data and isinstance(gps_data, dict) and gps_data.get('latitude') and gps_data.get('longitude'):
+                latitude = float(gps_data['latitude'])
+                longitude = float(gps_data['longitude'])
+                
+                # 有効な座標範囲をチェック
+                if -90 <= latitude <= 90 and -180 <= longitude <= 180:
+                    return jsonify({
+                        'success': True,
+                        'latitude': latitude,
+                        'longitude': longitude,
+                        'message': 'GPS情報を取得しました'
+                    })
+                else:
+                    return jsonify({
+                        'success': False,
+                        'message': '無効な座標データです'
+                    })
+            else:
+                return jsonify({
+                    'success': False,
+                    'message': '画像にGPS情報が含まれていません'
+                })
+                
+        finally:
+            # 一時ファイルを削除
+            try:
+                if os.path.exists(temp_path):
+                    os.remove(temp_path)
+                    print(f"一時ファイル削除: {temp_path}")
+            except Exception as cleanup_error:
+                print(f"一時ファイル削除エラー: {cleanup_error}")
+            
+    except Exception as e:
+        print(f"GPS抽出エラー: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'message': 'GPS情報の抽出に失敗しました'
+        })

@@ -8,7 +8,6 @@ def get_post_details(post, user_id):
     """投稿にコメントといいねの詳細を追加するヘルパー関数"""
     comments = load_json('Comments.json')
     likes = load_json('Likes.json')
-    coordinates = load_json('Coordinates.json')
     
     post_id = post['id']
     
@@ -23,16 +22,6 @@ def get_post_details(post, user_id):
     post_likes = likes.get(post_id, [])
     post['like_count'] = len(post_likes)
     post['user_liked'] = user_id in post_likes
-    
-    # 座標情報を追加
-    if post_id in coordinates:
-        coord_data = coordinates[post_id]
-        post['latitude'] = coord_data['latitude']
-        post['longitude'] = coord_data['longitude']
-        post['coordinate_source'] = coord_data.get('source', 'unknown')
-        print(f"座標情報追加: {post_id} -> lat:{post['latitude']}, lng:{post['longitude']}")
-    else:
-        print(f"座標情報なし: {post_id}")
     
     return post
 
@@ -133,19 +122,30 @@ def show_map(region):
         return redirect(url_for('auth.login'))
     
     posts = load_json('Posts.json')
-    coordinates = load_json('Coordinates.json')
     
-    # 指定された地域の投稿で、座標情報があるもののみを取得
+    # デバッグ情報を出力
+    print(f"=== 地図表示デバッグ情報 ===")
+    print(f"要求された地域: {region}")
+    print(f"全投稿数: {len(posts)}")
+    
+    # 地域に一致する投稿を検索
     region_posts = []
     for post in posts:
-        if (post.get('region') and post['region']['region'] == region 
-            and post['id'] in coordinates):
-            # 投稿に座標情報を追加
-            coord_data = coordinates[post['id']]
-            post['latitude'] = coord_data['latitude']
-            post['longitude'] = coord_data['longitude']
-            post['coordinate_source'] = coord_data.get('source', 'unknown')
+        post_region = post.get('region', {}).get('region')
+        has_latitude = post.get('latitude') is not None
+        has_longitude = post.get('longitude') is not None
+        has_coords = has_latitude and has_longitude
+        
+        print(f"投稿ID: {post.get('id')}, 地域: {post_region}, 緯度: {post.get('latitude')}, 経度: {post.get('longitude')}, 座標有無: {has_coords}")
+        
+        if post_region == region:
             region_posts.append(post)
+            print(f"  → 地域一致! 座標有無: {has_coords}")
+    
+    print(f"地域一致投稿数: {len(region_posts)}")
+    coords_posts = [p for p in region_posts if p.get('latitude') is not None and p.get('longitude') is not None]
+    print(f"座標付き投稿数: {len(coords_posts)}")
+    print("=== デバッグ情報終了 ===")
     
     return render_template('map.html', region=region, posts=region_posts)
 
@@ -165,3 +165,22 @@ def debug():
     }
     
     return jsonify(debug_info)
+
+@main_bp.route('/delete_comment', methods=['POST'])
+def delete_comment():
+    """コメント削除エンドポイント"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'message': 'ログインが必要です'})
+    
+    comment_id = request.form.get('comment_id')
+    post_id = request.form.get('post_id')
+    user_id = session['user_id']
+    
+    if not comment_id:
+        return jsonify({'success': False, 'message': 'コメントIDが無効です'})
+    
+    # ユーティリティ関数を使用
+    from utils.json_utils import delete_comment_from_json
+    result = delete_comment_from_json(comment_id, user_id)
+    
+    return jsonify(result)

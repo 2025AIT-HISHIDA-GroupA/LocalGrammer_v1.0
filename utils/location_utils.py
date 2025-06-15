@@ -1,95 +1,145 @@
-from config import REGION_BOUNDARIES
+"""
+地域判定のためのユーティリティ関数
+座標から地域を自動判定する機能
+"""
 
-def detect_region_from_coordinates(latitude, longitude):
+def get_region_from_coordinates(latitude, longitude):
     """
-    緯度・経度から地域を判定
+    緯度経度から地域を判定する
     
     Args:
         latitude (float): 緯度
         longitude (float): 経度
     
     Returns:
-        str or None: 検出された地域名、または None（どの地域にも該当しない場合）
+        str: 地域名
     """
-    try:
-        print(f"座標から地域を判定中: 緯度={latitude}, 経度={longitude}")
-        
-        # 各地域の境界をチェック
-        for region_name, boundaries in REGION_BOUNDARIES.items():
-            lat_min, lat_max = boundaries['lat_range']
-            lng_min, lng_max = boundaries['lng_range']
-            
-            # 座標が境界内にあるかチェック
-            if (lat_min <= latitude <= lat_max and 
-                lng_min <= longitude <= lng_max):
-                print(f"地域判定成功: {region_name}")
-                return region_name
-        
-        print("どの地域にも該当しませんでした")
-        return None
-        
-    except Exception as e:
-        print(f"地域判定エラー: {e}")
-        return None
+    lat = float(latitude)
+    lon = float(longitude)
+    
+    print(f"地域判定: 緯度={lat}, 経度={lon}")
+    
+    # 各地域の境界を定義（より正確な境界）
+    
+    # 北海道（北海道本島と周辺諸島）
+    if lat >= 41.3:
+        print("判定結果: 北海道")
+        return '北海道'
+    
+    # 沖縄（沖縄県全域）
+    if lat <= 26.5:
+        print("判定結果: 沖縄")
+        return '沖縄'
+    
+    # 東北（青森、岩手、宮城、秋田、山形、福島）
+    if lat >= 37.0 and lat < 41.3:
+        print("判定結果: 東北")
+        return '東北'
+    
+    # 九州（福岡、佐賀、長崎、熊本、大分、宮崎、鹿児島）
+    if lat <= 34.0 and lon <= 132.0:
+        print("判定結果: 九州")
+        return '九州'
+    
+    # 中国・四国（鳥取、島根、岡山、広島、山口、徳島、香川、愛媛、高知）
+    if lat <= 35.7 and lon <= 134.8:
+        print("判定結果: 中国・四国")
+        return '中国・四国'
+    
+    # 関西圏（大阪、京都、兵庫、奈良、和歌山、滋賀）
+    if lat >= 33.8 and lat <= 35.8 and lon >= 134.8 and lon <= 136.2:
+        print("判定結果: 関西圏")
+        return '関西圏'
+    
+    # 東海圏（愛知、岐阜、三重、静岡）
+    if lat >= 34.0 and lat <= 36.5 and lon >= 136.2 and lon <= 139.0:
+        print("判定結果: 東海圏")
+        return '東海圏'
+    
+    # 首都圏（東京、神奈川、埼玉、千葉、茨城、栃木、群馬）
+    if lat >= 35.0 and lat <= 37.5 and lon >= 139.0 and lon <= 141.0:
+        print("判定結果: 首都圏")
+        return '首都圏'
+    
+    # 北陸・甲信越（新潟、富山、石川、福井、山梨、長野）
+    if ((lat >= 35.5 and lat <= 38.5 and lon >= 136.0 and lon < 139.0) or  # 北陸
+        (lat >= 35.0 and lat <= 36.5 and lon >= 138.0 and lon < 139.0)):   # 甲信越
+        print("判定結果: 北陸・甲信越")
+        return '北陸・甲信越'
+    
+    # デフォルト判定（最も近い地域を推定）
+    print(f"境界外の座標: 緯度={lat}, 経度={lon}")
+    
+    # 経度による大まかな判定
+    if lon < 135.0:
+        if lat > 35.0:
+            print("判定結果: 中国・四国 (デフォルト)")
+            return '中国・四国'
+        else:
+            print("判定結果: 九州 (デフォルト)")
+            return '九州'
+    elif lon < 137.0:
+        if lat > 35.5:
+            print("判定結果: 北陸・甲信越 (デフォルト)")
+            return '北陸・甲信越'
+        else:
+            print("判定結果: 関西圏 (デフォルト)")
+            return '関西圏'
+    elif lon < 139.0:
+        print("判定結果: 東海圏 (デフォルト)")
+        return '東海圏'
+    else:
+        print("判定結果: 首都圏 (デフォルト)")
+        return '首都圏'
 
-def get_region_info(latitude, longitude):
+
+def is_coordinate_in_region(latitude, longitude, region_name):
     """
-    座標から地域情報と詳細を取得
+    指定した座標が指定した地域に含まれるかチェック
+    
+    Args:
+        latitude (float): 緯度
+        longitude (float): 経度
+        region_name (str): 地域名
     
     Returns:
-        dict: 地域情報辞書
+        bool: 地域に含まれる場合True
     """
-    region = detect_region_from_coordinates(latitude, longitude)
-    
-    if region:
-        return {
-            'region': region,
-            'detected': True,
-            'confidence': 'high',  # 境界内なので高信頼度
-            'coordinates': {
-                'latitude': latitude,
-                'longitude': longitude
-            }
-        }
-    else:
-        # どの地域にも該当しない場合、最も近い地域を計算
-        closest_region = find_closest_region(latitude, longitude)
-        return {
-            'region': closest_region,
-            'detected': False,
-            'confidence': 'low',   # 推測なので低信頼度
-            'coordinates': {
-                'latitude': latitude,
-                'longitude': longitude
-            }
-        }
+    detected_region = get_region_from_coordinates(latitude, longitude)
+    return detected_region == region_name
 
-def find_closest_region(latitude, longitude):
+
+def debug_coordinate_bounds():
     """
-    最も近い地域を距離で計算
+    デバッグ用: 各地域の境界座標を表示
     """
-    try:
-        from config import REGION_DEFAULT_COORDINATES
-        import math
+    test_coordinates = [
+        # 首都圏
+        (35.6895, 139.6917, "東京駅"),
+        (35.4437, 139.6380, "横浜"),
+        (35.8617, 139.6455, "さいたま"),
+        (35.6074, 140.1233, "千葉"),
         
-        min_distance = float('inf')
-        closest_region = '首都圏'  # デフォルト
+        # 関西圏
+        (34.6937, 135.5023, "大阪"),
+        (35.0116, 135.7681, "京都"),
+        (34.6901, 135.1956, "神戸"),
         
-        for region_name, center_coords in REGION_DEFAULT_COORDINATES.items():
-            center_lat, center_lng = center_coords
-            
-            # 簡易的な距離計算（ハーヴァサイン公式の簡略版）
-            lat_diff = latitude - center_lat
-            lng_diff = longitude - center_lng
-            distance = math.sqrt(lat_diff**2 + lng_diff**2)
-            
-            if distance < min_distance:
-                min_distance = distance
-                closest_region = region_name
+        # 東海圏
+        (35.1803, 136.9066, "名古屋"),
+        (34.9756, 138.3828, "静岡"),
         
-        print(f"最も近い地域: {closest_region} (距離: {min_distance:.3f})")
-        return closest_region
-        
-    except Exception as e:
-        print(f"最近地域計算エラー: {e}")
-        return '首都圏'  # エラー時のデフォルト
+        # 北陸・甲信越
+        (36.5613, 136.6562, "金沢"),
+        (36.6513, 138.1812, "長野"),
+        (35.6642, 138.5681, "甲府"),
+    ]
+    
+    for lat, lon, name in test_coordinates:
+        region = get_region_from_coordinates(lat, lon)
+        print(f"{name}: ({lat}, {lon}) -> {region}")
+
+
+if __name__ == "__main__":
+    # テスト実行
+    debug_coordinate_bounds()
