@@ -4,6 +4,7 @@ import os
 from datetime import datetime
 from utils.json_utils import load_json, save_json
 from utils.file_utils import save_uploaded_file, delete_file
+from flask import send_from_directory
 from config import REGIONS, TAGS
 
 api_bp = Blueprint('api', __name__)
@@ -267,10 +268,14 @@ def api_profile():
     current_region = regions.get(user_id, {'region': '東海圏'})
     current_tags = tags.get(user_id, TAGS.copy())
     
+    #return jsonify({
+    #    'region': current_region['region'],
+    #    'tags': current_tags,
+    #})
     return jsonify({
-        'region': current_region['region'],
-        'tags': current_tags,
-    })
+    'current_region': current_region,
+    'current_tags': current_tags,
+})
 
 @api_bp.route('/static_data')
 def api_static_data():
@@ -340,3 +345,8 @@ def api_add_comment(post_id):
         'comment': comment_data,
         'message': 'Comment added successfully'
     }), 201
+
+@api_bp.route('/static/uploads/<filename>')
+def uploaded_file(filename):
+    """画像ファイル配信エンドポイント"""
+    return send_from_directory(current_app.config['UPLOAD_FOLDER'], filename)

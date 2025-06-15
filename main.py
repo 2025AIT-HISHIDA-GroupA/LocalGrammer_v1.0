@@ -11,6 +11,10 @@ def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
     
+    # セッション設定
+    app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+    app.config['SESSION_COOKIE_SECURE'] = False  # 開発環境用
+    
     # アップロードフォルダを作成
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
     
@@ -27,4 +31,4 @@ def create_app():
 
 if __name__ == '__main__':
     app = create_app()
-    app.run(debug=True, port=5002,host='192.168.1.173')
+    app.run(debug=True, port=5001)

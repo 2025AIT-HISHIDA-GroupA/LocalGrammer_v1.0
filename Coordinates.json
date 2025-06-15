@@ -1,8 +1,14 @@
 {
-  "ea29e611-c526-49c9-bac7-2ae92642c7d1": {
-    "latitude": 35.699778,
-    "longitude": 139.7717,
+  "f0824fc4-2505-4446-8696-52211ac7df39": {
+    "latitude": 35.196014,
+    "longitude": 136.759768,
     "source": "manual",
-    "created_at": "2025-06-14T23:49:23.939868"
+    "created_at": "2025-06-15T09:18:11.872944"
+  },
+  "5f55e7df-7b2e-4504-ba36-c5f599d76cf3": {
+    "latitude": 35.241045,
+    "longitude": 136.761761,
+    "source": "manual",
+    "created_at": "2025-06-15T09:18:37.636539"
   }
 }

@@ -2,13 +2,14 @@ import os
 
 class Config:
     SECRET_KEY = 'your-secret-key-here'
+    SECRET_KEY = os.environ.get('SECRET_KEY') or 'your-secret-key-here'
     UPLOAD_FOLDER = 'static/uploads'
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB max file size
 
-# 許可される画像拡張子
+# 許可される画像ファイル形式
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 
-# 広域エリアリスト
+# 地域リスト
 REGIONS = [
     '東海圏',
     '首都圏', 

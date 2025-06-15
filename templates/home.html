@@ -18,15 +18,46 @@
     </div>
 
     {% if post.images %}
-    <div class="post-images" style="margin-top: 10px;">
-        <div style="display: flex; flex-wrap: wrap; gap: 10px;">
-            {% for image in post.images %}
-            <img src="{{ url_for('static', filename='uploads/' ~ image) }}" alt="投稿画像"
-                style="width: 150px; height: 150px; object-fit: cover; border-radius: 8px; cursor: pointer;"
-                onclick="openImageModal('{{ url_for('static', filename='uploads/' ~ image) }}')">
-            {% endfor %}
+    <div style="display: flex; gap: 15px; margin-top: 10px; align-items: flex-start;">
+        <!-- 画像エリア -->
+        <div class="post-images" style="flex: 1;">
+            <div style="display: flex; flex-wrap: wrap; gap: 10px;">
+                {% for image in post.images %}
+                <img src="{{ url_for('static', filename='uploads/' ~ image) }}" alt="投稿画像"
+                    style="width: 150px; height: 150px; object-fit: cover; border-radius: 8px; cursor: pointer;"
+                    onclick="openImageModal('{{ url_for('static', filename='uploads/' ~ image) }}')">
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- 地図エリア -->
+        {% if post.latitude and post.longitude %}
+        <div class="post-map-container" style="flex: 0 0 300px;">
+            <div class="post-map" id="post-map-{{ post.id }}"
+                style="height: 200px; width: 100%; border: 1px solid #ddd; border-radius: 8px;"
+                data-lat="{{ post.latitude }}" data-lng="{{ post.longitude }}" data-username="{{ post.username }}"
+                data-tag="{{ post.tag }}">
+            </div>
+            <div style="margin-top: 5px; font-size: 0.8em; color: #666; text-align: center;">
+                📍 {{ post.region.region }}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    {% else %}
+    <!-- 画像がない場合は地図のみ表示 -->
+    {% if post.latitude and post.longitude %}
+    <div class="post-map-container" style="margin-top: 10px; max-width: 300px;">
+        <div class="post-map" id="post-map-{{ post.id }}"
+            style="height: 200px; width: 100%; border: 1px solid #ddd; border-radius: 8px;"
+            data-lat="{{ post.latitude }}" data-lng="{{ post.longitude }}" data-username="{{ post.username }}"
+            data-tag="{{ post.tag }}">
+        </div>
+        <div style="margin-top: 5px; font-size: 0.8em; color: #666; text-align: center;">
+            📍 {{ post.region.region }}
         </div>
     </div>
+    {% endif %}
     {% endif %}
 
     <!-- グッドボタンとコメント数 -->
@@ -95,7 +126,72 @@
     <img id="modalImage" style="margin: auto; display: block; width: 80%; max-width: 700px; margin-top: 50px;">
 </div>
 
+<!-- Leaflet CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
 <script>
+    // 投稿埋め込み地図の初期化
+    document.addEventListener('DOMContentLoaded', function () {
+        // 各投稿の地図を初期化
+        const postMaps = document.querySelectorAll('.post-map');
+        postMaps.forEach(function (mapElement) {
+            const lat = parseFloat(mapElement.dataset.lat);
+            const lng = parseFloat(mapElement.dataset.lng);
+            const username = mapElement.dataset.username;
+            const tag = mapElement.dataset.tag;
+            const mapId = mapElement.id;
+
+            if (!isNaN(lat) && !isNaN(lng)) {
+                // 小さな地図を作成
+                const map = L.map(mapId, {
+                    zoomControl: false,     // ズームコントロールを非表示
+                    dragging: false,        // ドラッグを無効
+                    touchZoom: false,       // タッチズームを無効
+                    doubleClickZoom: false, // ダブルクリックズームを無効
+                    scrollWheelZoom: false, // スクロールズームを無効
+                    boxZoom: false,         // ボックスズームを無効
+                    keyboard: false,        // キーボード操作を無効
+                    tap: false              // タップを無効
+                }).setView([lat, lng], 15);
+
+                // タイルレイヤーを追加
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '© OpenStreetMap contributors'
+                }).addTo(map);
+
+                // カスタムピンアイコン
+                const customIcon = L.divIcon({
+                    className: 'custom-pin',
+                    html: '<div style="background-color: #ff4757; width: 20px; height: 20px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>',
+                    iconSize: [20, 20],
+                    iconAnchor: [10, 20]
+                });
+
+                // マーカーを追加
+                L.marker([lat, lng], { icon: customIcon })
+                    .addTo(map)
+                    .bindPopup('<strong>' + username + '</strong><br>タグ: ' + tag);
+
+                // 地図クリックで詳細地図に遷移
+                map.on('click', function () {
+                    const region = mapElement.closest('.post').querySelector('.post-meta span:nth-child(2)').textContent;
+                    window.location.href = '/map/' + region;
+                });
+
+                // マウスホバー効果
+                mapElement.style.cursor = 'pointer';
+                mapElement.addEventListener('mouseenter', function () {
+                    mapElement.style.opacity = '0.8';
+                });
+                mapElement.addEventListener('mouseleave', function () {
+                    mapElement.style.opacity = '1';
+                });
+            }
+        });
+    });
+
     function openImageModal(imageSrc) {
         document.getElementById('modalImage').src = imageSrc;
         document.getElementById('imageModal').style.display = 'block';
