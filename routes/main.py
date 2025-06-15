@@ -122,11 +122,31 @@ def show_map(region):
         return redirect(url_for('auth.login'))
     
     posts = load_json('Posts.json')
-    region_posts = [
-        post for post in posts
-        if post.get('region') and post['region']['region'] == region
-        and post.get('latitude') and post.get('longitude')
-    ]
+    
+    # デバッグ情報を出力
+    print(f"=== 地図表示デバッグ情報 ===")
+    print(f"要求された地域: {region}")
+    print(f"全投稿数: {len(posts)}")
+    
+    # 地域に一致する投稿を検索
+    region_posts = []
+    for post in posts:
+        post_region = post.get('region', {}).get('region')
+        has_latitude = post.get('latitude') is not None
+        has_longitude = post.get('longitude') is not None
+        has_coords = has_latitude and has_longitude
+        
+        print(f"投稿ID: {post.get('id')}, 地域: {post_region}, 緯度: {post.get('latitude')}, 経度: {post.get('longitude')}, 座標有無: {has_coords}")
+        
+        if post_region == region:
+            region_posts.append(post)
+            print(f"  → 地域一致! 座標有無: {has_coords}")
+    
+    print(f"地域一致投稿数: {len(region_posts)}")
+    coords_posts = [p for p in region_posts if p.get('latitude') is not None and p.get('longitude') is not None]
+    print(f"座標付き投稿数: {len(coords_posts)}")
+    print("=== デバッグ情報終了 ===")
+    
     return render_template('map.html', region=region, posts=region_posts)
 
 @main_bp.route('/debug')
@@ -145,3 +165,22 @@ def debug():
     }
     
     return jsonify(debug_info)
+
+@main_bp.route('/delete_comment', methods=['POST'])
+def delete_comment():
+    """コメント削除エンドポイント"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'message': 'ログインが必要です'})
+    
+    comment_id = request.form.get('comment_id')
+    post_id = request.form.get('post_id')
+    user_id = session['user_id']
+    
+    if not comment_id:
+        return jsonify({'success': False, 'message': 'コメントIDが無効です'})
+    
+    # ユーティリティ関数を使用
+    from utils.json_utils import delete_comment_from_json
+    result = delete_comment_from_json(comment_id, user_id)
+    
+    return jsonify(result)

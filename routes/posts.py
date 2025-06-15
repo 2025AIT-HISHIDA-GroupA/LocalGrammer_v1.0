@@ -4,6 +4,8 @@ import os
 from datetime import datetime
 from utils.json_utils import load_json, save_json
 from utils.file_utils import save_uploaded_file, delete_file
+from utils.location_utils import get_region_from_coordinates
+from utils.exif_utils import extract_gps_from_multiple_images
 from config import REGIONS, TAGS
 
 posts_bp = Blueprint('posts', __name__)
@@ -16,10 +18,15 @@ def post():
     
     if request.method == 'POST':
         tag = request.form['tag']
-        region = request.form['region']
+        region = request.form.get('region')
+        
+        # 座標情報の取得
+        latitude = request.form.get('latitude')
+        longitude = request.form.get('longitude')
         
         # 画像ファイルの処理
         uploaded_images = []
+        uploaded_image_paths = []
         
         # 最大4枚まで処理
         for i in range(1, 5):  # image1, image2, image3, image4
@@ -30,8 +37,30 @@ def post():
                     filename = save_uploaded_file(file, current_app.config['UPLOAD_FOLDER'])
                     if filename:
                         uploaded_images.append(filename)
+                        uploaded_image_paths.append(os.path.join(current_app.config['UPLOAD_FOLDER'], filename))
                 except Exception as e:
                     flash(f'画像{i}のアップロードに失敗しました: {str(e)}', 'error')
+        
+        # 座標が手動設定されていない場合、画像からGPS情報を抽出
+        if not latitude or not longitude:
+            if uploaded_image_paths:
+                coordinates = extract_gps_from_multiple_images(uploaded_image_paths)
+                if coordinates:
+                    latitude, longitude = coordinates
+        
+        # 座標がある場合は自動で地域を判定
+        if latitude and longitude:
+            try:
+                auto_region = get_region_from_coordinates(latitude, longitude)
+                if not region:  # 地域が手動選択されていない場合は自動判定を使用
+                    region = auto_region
+            except (ValueError, TypeError):
+                pass  # 座標が不正な場合は手動選択された地域を使用
+        
+        # 地域が設定されていない場合はエラー
+        if not region:
+            flash('地域を選択するか、位置情報を許可してください。', 'error')
+            return render_template('post.html', regions=REGIONS, tags=TAGS)
         
         # 投稿データを作成
         post_data = {
@@ -45,6 +74,14 @@ def post():
             'images': uploaded_images,
             'created_at': datetime.now().isoformat()
         }
+        
+        # 座標情報があれば追加
+        if latitude and longitude:
+            try:
+                post_data['latitude'] = float(latitude)
+                post_data['longitude'] = float(longitude)
+            except (ValueError, TypeError):
+                pass  # 座標が不正な場合は座標なしで保存
         
         posts = load_json('Posts.json')
         posts.insert(0, post_data)  # 最新の投稿を先頭に追加

@@ -10,13 +10,27 @@
       height: 600px;
       width: 100%;
     }
+
+    .back-link {
+      display: inline-block;
+      margin: 10px 0;
+      padding: 8px 16px;
+      background-color: #007bff;
+      color: white;
+      text-decoration: none;
+      border-radius: 4px;
+    }
+
+    .back-link:hover {
+      background-color: #0056b3;
+    }
   </style>
 </head>
 
 <body>
   <h1>{{ region }}の投稿マップ</h1>
   <div id="map"></div>
-  <a href="{{ url_for('main.home') }}">← ホームに戻る</a>
+  <a href="{{ url_for('main.home') }}" class="back-link">← ホームに戻る</a>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
@@ -33,37 +47,119 @@
       '北陸・甲信越': [36.6513, 138.1812] // 長野市
     };
 
-    // Jinjaから渡された地域名
-    const regionName = "{{ region }}";
-    const center = regionCenters[regionName] || [35.6895, 139.6917]; // デフォルトは東京
+    // URLパラメータから特定の投稿IDを取得
+    const urlParams = new URLSearchParams(window.location.search);
+    const highlightPostId = urlParams.get('post_id');
 
-    const map = L.map('map').setView(center, 10);
+    // Jinjaから渡された地域名と投稿データ
+    const regionName = "{{ region }}";
+    const postList = {{ posts | tojson | default ('[]') }};
+
+    // 投稿に座標がある場合は、その範囲に合わせて地図の中心を設定
+    let center = regionCenters[regionName] || [35.6895, 139.6917]; // デフォルトは東京
+    let zoom = 10;
+
+    // 特定の投稿がハイライト対象の場合、その座標を中心にする
+    if (highlightPostId) {
+      const targetPost = postList.find(post => post.id === highlightPostId);
+      if (targetPost && targetPost.latitude && targetPost.longitude) {
+        center = [targetPost.latitude, targetPost.longitude];
+        zoom = 15; // より詳細なズームレベル
+      }
+    } else if (postList.length > 0) {
+      // 投稿がある場合は、投稿の座標の中心を計算
+      const postsWithCoords = postList.filter(post => post.latitude && post.longitude);
+      if (postsWithCoords.length > 0) {
+        const avgLat = postsWithCoords.reduce((sum, post) => sum + parseFloat(post.latitude), 0) / postsWithCoords.length;
+        const avgLon = postsWithCoords.reduce((sum, post) => sum + parseFloat(post.longitude), 0) / postsWithCoords.length;
+        center = [avgLat, avgLon];
+      }
+    }
+
+    const map = L.map('map').setView(center, zoom);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© OpenStreetMap contributors'
     }).addTo(map);
 
-    const posts = {{ posts | tojson | default ('[]') }};
-
-    posts.forEach(post => {
-      const lat = parseFloat(post.latitude);
-      const lon = parseFloat(post.longitude);
-
-      let imgHtml = '';
-      if (post.images && post.images.length > 0) {
-        imgHtml = `<img src="/static/uploads/${post.images[0]}" width="100">`;
-      }
-
-      const popupContent = `
-      <strong>${post.username}</strong><br>
-      タグ: ${post.tag}<br>
-      ${imgHtml}
-    `;
-
-      L.marker([lat, lon])
-        .addTo(map)
-        .bindPopup(popupContent);
+    // カスタムアイコンの定義
+    const normalIcon = L.icon({
+      iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+      shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+      iconSize: [25, 41],
+      iconAnchor: [12, 41],
+      popupAnchor: [1, -34],
+      shadowSize: [41, 41]
     });
+
+    const highlightIcon = L.icon({
+      iconUrl: 'data:image/svg+xml;base64,' + btoa(`
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 25 41" fill="red">
+          <path d="M12.5 0C5.6 0 0 5.6 0 12.5c0 5.4 3.2 10.1 7.8 12.2L12.5 41l4.7-16.3c4.6-2.1 7.8-6.8 7.8-12.2C25 5.6 19.4 0 12.5 0z"/>
+          <circle cx="12.5" cy="12.5" r="7" fill="white"/>
+        </svg>
+      `),
+      shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+      iconSize: [25, 41],
+      iconAnchor: [12, 41],
+      popupAnchor: [1, -34],
+      shadowSize: [41, 41]
+    });
+
+    postList.forEach(post => {
+      if (post.latitude && post.longitude) {
+        const lat = parseFloat(post.latitude);
+        const lon = parseFloat(post.longitude);
+
+        let imgHtml = '';
+        if (post.images && post.images.length > 0) {
+          imgHtml = `<img src="/static/uploads/${post.images[0]}" width="100" style="border-radius: 4px;">`;
+        }
+
+        const popupContent = `
+          <div style="min-width: 120px;">
+            <strong>${post.username}</strong><br>
+            タグ: ${post.tag}<br>
+            日時: ${post.created_at.substring(0, 10)}<br>
+            ${imgHtml}
+            ${highlightPostId === post.id ? '<br><strong style="color: red;">📍 選択された投稿</strong>' : ''}
+          </div>
+        `;
+
+        // ハイライト対象かどうかでアイコンを変更
+        const icon = (highlightPostId === post.id) ? highlightIcon : normalIcon;
+
+        const marker = L.marker([lat, lon], { icon: icon })
+          .addTo(map)
+          .bindPopup(popupContent);
+
+        // ハイライト対象の場合は自動でポップアップを開く
+        if (highlightPostId === post.id) {
+          marker.openPopup();
+        }
+      }
+    });
+
+    // 座標付きの投稿がない場合のメッセージ
+    const postsWithCoords = postList.filter(post => post.latitude && post.longitude);
+    console.log(`地域: ${regionName}, 全投稿数: ${postList.length}, 座標付き投稿数: ${postsWithCoords.length}`);
+
+    if (postsWithCoords.length === 0) {
+      const messageControl = L.control({ position: 'topright' });
+      messageControl.onAdd = function (map) {
+        const div = L.DomUtil.create('div', 'info');
+        div.innerHTML = `
+            <div style="background: white; padding: 15px; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
+                <strong>この地域の投稿情報</strong><br>
+                全投稿数: ${postList.length}<br>
+                位置情報付き: ${postsWithCoords.length}<br>
+                ${postList.length > 0 ? '位置情報が設定されていない投稿があります' : 'この地域には投稿がありません'}
+            </div>
+        `;
+        return div;
+      };
+      messageControl.addTo(map);
+    }
   </script>
 </body>
 
