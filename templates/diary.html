@@ -27,6 +27,12 @@
                         style="background: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 0.8em; margin-left: 10px;">
                         削除
                     </button>
+
+                    <!-- 共有ボタンを追加（削除ボタンの横に） -->
+                    <button onclick="sharePost('{{ post.id }}')"
+                        style="background: #28a745; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 0.8em; margin-left: 10px;">
+                        🔗 共有
+                    </button>
                 </div>
             </div>
 
@@ -54,6 +60,12 @@
                 🗺️ 地域の地図を表示
             </a>
             {% endif %}
+
+            <!-- 投稿詳細リンクボタンを追加 -->
+            <a href="{{ url_for('main.post_detail', post_id=post.id) }}"
+                style="display: inline-block; margin-top: 10px; margin-left: 10px; padding: 5px 10px; background: #28a745; color: white; text-decoration: none; border-radius: 5px; font-size: 0.9em;">
+                📄 詳細を見る
+            </a>
         </div>
 
         <!-- 右側: 埋め込み地図 -->
@@ -463,5 +475,22 @@
             }
         }
     });
+
+    // 共有機能
+    function sharePost(postId) {
+        const url = window.location.origin + '/post/' + postId;
+        navigator.clipboard.writeText(url).then(function () {
+            alert('投稿のURLをクリップボードにコピーしました！\n' + url);
+        }).catch(function () {
+            // フォールバック
+            const textArea = document.createElement('textarea');
+            textArea.value = url;
+            document.body.appendChild(textArea);
+            textArea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textArea);
+            alert('投稿のURLをクリップボードにコピーしました！\n' + url);
+        });
+    }
 </script>
 {% endblock %}
