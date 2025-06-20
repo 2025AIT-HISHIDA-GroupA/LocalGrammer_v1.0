@@ -514,3 +514,33 @@ def extract_gps_from_single_image():
             'success': False,
             'message': 'GPS情報の抽出に失敗しました'
         })
+    
+@api_bp.route('/liked_posts')
+def api_liked_posts():
+    """API: いいねした投稿一覧取得"""
+    if 'user_id' not in session:
+        return jsonify({'success': False, 'message': 'Authentication required.'}), 401
+
+    user_id = session['user_id']
+    
+    # いいねデータを取得
+    likes = load_json('Likes.json')
+    posts = load_json('Posts.json')
+    
+    # ユーザーがいいねした投稿IDを取得
+    liked_post_ids = []
+    for post_id, user_list in likes.items():
+        if user_id in user_list:
+            liked_post_ids.append(post_id)
+    
+    # いいねした投稿を取得
+    liked_posts = []
+    for post in posts:
+        if post['id'] in liked_post_ids:
+            detailed_post = get_post_details(post.copy(), user_id)
+            liked_posts.append(detailed_post)
+    
+    # 作成日時でソート（新しい順）
+    liked_posts.sort(key=lambda x: x['created_at'], reverse=True)
+    
+    return jsonify(liked_posts)

@@ -142,6 +142,41 @@
             align-items: center;
             gap: 5px;
         }
+
+        /* ブックマークボタンのスタイル */
+        .bookmark-btn {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            width: 45px;
+            height: 45px;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            box-shadow: 0 4px 15px rgba(240, 147, 251, 0.4);
+            transition: all 0.3s ease;
+            position: relative;
+            margin-left: 10px;
+        }
+
+        .bookmark-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(240, 147, 251, 0.6);
+        }
+
+        .bookmark-btn:active {
+            transform: translateY(0);
+        }
+
+        /* アクションボタンコンテナ */
+        .action-buttons {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
     </style>
 </head>
 
@@ -155,10 +190,17 @@
                 <a href="{{ url_for('main.profile') }}">プロフィール</a>
                 <a href="{{ url_for('auth.logout') }}">ログアウト</a>
             </div>
-            <div style="display: flex; align-items: center; gap: 10px;">
+            <div class="action-buttons">
+                <!-- ブックマーク（いいね一覧）ボタン -->
+                <a href="{{ url_for('main.liked_posts') }}" class="bookmark-btn" title="いいねした投稿を見る">
+                    📖
+                </a>
+                <!-- 投稿ボタン -->
                 <a href="{{ url_for('posts.post') }}" class="btn"
-                    style="width: 40px; height: 40px; min-width: auto; padding: 0; display: flex; align-items: center; justify-content: center; border-radius: 8px;">+</a>
-                <span>{{ session.username }}</span>
+                    style="width: 45px; height: 45px; min-width: auto; padding: 0; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 20px; background: linear-gradient(135deg, #007bff 0%, #0056b3 100%); box-shadow: 0 4px 15px rgba(0, 123, 255, 0.4);">
+                    ✏️
+                </a>
+                <span style="margin-left: 10px; font-weight: 600; color: #495057;">{{ session.username }}</span>
             </div>
         </div>
         {% endif %}

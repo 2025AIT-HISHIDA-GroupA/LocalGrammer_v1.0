@@ -75,6 +75,36 @@ def diary():
     
     return render_template('diary.html', posts=detailed_posts)
 
+@main_bp.route('/liked_posts')
+def liked_posts():
+    """いいねした投稿一覧ページ"""
+    if 'user_id' not in session:
+        return redirect(url_for('auth.login'))
+    
+    user_id = session['user_id']
+    
+    # いいねデータを取得
+    likes = load_json('Likes.json')
+    posts = load_json('Posts.json')
+    
+    # ユーザーがいいねした投稿IDを取得
+    liked_post_ids = []
+    for post_id, user_list in likes.items():
+        if user_id in user_list:
+            liked_post_ids.append(post_id)
+    
+    # いいねした投稿を取得
+    liked_posts = []
+    for post in posts:
+        if post['id'] in liked_post_ids:
+            detailed_post = get_post_details(post, user_id)
+            liked_posts.append(detailed_post)
+    
+    # 作成日時でソート（新しい順）
+    liked_posts.sort(key=lambda x: x['created_at'], reverse=True)
+    
+    return render_template('liked_posts.html', posts=liked_posts, username=session['username'])
+
 @main_bp.route('/profile', methods=['GET', 'POST'])
 def profile():
     """プロフィール設定ページ"""
@@ -184,3 +214,26 @@ def delete_comment():
     result = delete_comment_from_json(comment_id, user_id)
     
     return jsonify(result)
+
+@main_bp.route('/post/<string:post_id>')
+def post_detail(post_id):
+    """投稿詳細ページ"""
+    if 'user_id' not in session:
+        return redirect(url_for('auth.login'))
+    
+    posts = load_json('Posts.json')
+    post = None
+    
+    for p in posts:
+        if p['id'] == post_id:
+            post = p
+            break
+    
+    if not post:
+        flash('投稿が見つかりません', 'error')
+        return redirect(url_for('main.home'))
+    
+    # 投稿詳細を取得
+    detailed_post = get_post_details(post, session['user_id'])
+    
+    return render_template('post_detail.html', post=detailed_post, username=session['username'])

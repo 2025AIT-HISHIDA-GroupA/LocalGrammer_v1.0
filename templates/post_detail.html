@@ -1,24 +1,25 @@
 {% extends "base.html" %}
 
-{% block title %}ホーム - 投稿アプリ{% endblock %}
+{% block title %}投稿詳細 - 投稿アプリ{% endblock %}
 
 {% block content %}
 <!-- Leafletのスタイルを読み込み -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-<h2>ホーム</h2>
+<div style="margin-bottom: 20px;">
+    <a href="{{ url_for('main.home') }}" style="color: #007bff; text-decoration: none;">← ホームに戻る</a>
+</div>
 
-{% if posts %}
-{% for post in posts %}
+<h2>投稿詳細</h2>
+
 <div class="post">
     <!-- 上部: 投稿内容と地図の2列レイアウト -->
     <div style="display: flex; gap: 20px; margin-bottom: 15px;">
         <!-- 左側: 投稿内容 -->
         <div style="flex: 1;">
             <div class="post-header">
-                <!-- 投稿者名を通常のテキストに戻す -->
-                <strong style="font-size: 1.1em;">{{ post.username }}</strong>
+                <strong>{{ post.username }}</strong>
                 <div class="post-meta">
                     <span>{{ post.tag }}</span> |
                     <span>{{ post.region.region }}</span> |
@@ -50,12 +51,6 @@
                 🗺️ 地域の地図を表示
             </a>
             {% endif %}
-
-            <!-- 投稿詳細リンクボタンを追加 -->
-            <a href="{{ url_for('main.post_detail', post_id=post.id) }}"
-                style="display: inline-block; margin-top: 10px; margin-left: 10px; padding: 5px 10px; background: #28a745; color: white; text-decoration: none; border-radius: 5px; font-size: 0.9em;">
-                📄 詳細を見る
-            </a>
         </div>
 
         <!-- 右側: 埋め込み地図 -->
@@ -80,17 +75,16 @@
             💬 {{ post.comment_count }} コメント
         </button>
 
-        <!-- 共有ボタンを追加 -->
+        <!-- 共有ボタン -->
         <button onclick="sharePost('{{ post.id }}')"
             style="background: #28a745; color: white; border: none; padding: 10px 20px; border-radius: 25px; cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 1em;">
             🔗 共有
         </button>
     </div>
 
-    <!-- コメントセクション（全幅で広々と） -->
+    <!-- コメントセクション（常に表示） -->
     <div id="comments-{{ post.id }}"
-        style="display: none; margin: 0; padding: 20px; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border-radius: 0 0 12px 12px;">
-
+        style="margin: 0; padding: 20px; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border-radius: 0 0 12px 12px;">
         <!-- コメント一覧 -->
         <div id="existing-comments-{{ post.id }}" style="margin-bottom: 25px;">
             {% if post.comments %}
@@ -101,7 +95,7 @@
             <div style="display: grid; gap: 15px;" id="comments-container-{{ post.id }}">
                 {% for comment in post.comments %}
                 <div class="comment" id="comment-{{ comment.id }}"
-                    style="background: white; padding: 18px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); border-left: 4px solid #007bff; transition: transform 0.2s;">
+                    style="background: white; padding: 18px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); border-left: 4px solid #007bff;">
                     <div
                         style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                         <div
@@ -143,7 +137,7 @@
             {% endif %}
         </div>
 
-        <!-- コメント入力フォーム（広々としたデザイン） -->
+        <!-- コメント入力フォーム -->
         <form onsubmit="addComment(event, '{{ post.id }}')"
             style="background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
             <h4
@@ -160,34 +154,13 @@
                     </div>
                 </div>
                 <button type="submit"
-                    style="background: linear-gradient(135deg, #007bff 0%, #0056b3 100%); color: white; border: none; padding: 15px 25px; border-radius: 8px; cursor: pointer; font-size: 1em; font-weight: 600; min-width: 100px; height: fit-content; transition: all 0.3s; box-shadow: 0 2px 8px rgba(0,123,255,0.3);"
-                    onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(0,123,255,0.4)'"
-                    onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 8px rgba(0,123,255,0.3)'">
+                    style="background: linear-gradient(135deg, #007bff 0%, #0056b3 100%); color: white; border: none; padding: 15px 25px; border-radius: 8px; cursor: pointer; font-size: 1em; white-space: nowrap; box-shadow: 0 2px 8px rgba(0, 123, 255, 0.3);">
                     📤 送信
                 </button>
             </div>
         </form>
     </div>
 </div>
-{% endfor %}
-
-<!-- 地図初期化スクリプト -->
-<script>
-    document.addEventListener('DOMContentLoaded', function () {
-        {% for post in posts %}
-        initEmbeddedMap(
-            '{{ post.id }}',
-            {% if post.latitude %}'{{ post.latitude }}'{% else %}null{% endif %},
-        {% if post.longitude %}'{{ post.longitude }}'{% else %} null{% endif %},
-    '{{ post.region.region }}'
-        );
-    {% endfor %}
-    });
-</script>
-
-{% else %}
-<p>まだ投稿がありません。</p>
-{% endif %}
 
 <!-- 画像拡大表示用のモーダル -->
 <div id="imageModal"
@@ -195,10 +168,20 @@
     <span
         style="position: absolute; top: 15px; right: 35px; color: #f1f1f1; font-size: 40px; font-weight: bold; cursor: pointer;"
         onclick="closeImageModal()">&times;</span>
-    <img id="modalImage" style="margin: auto; display: block; width: 80%; max-width: 700px; margin-top: 50px;">
+    <img id="modalImage" style="margin: auto; display: block; width: 80%; max-width: 700px;">
 </div>
 
 <script>
+    // 地図初期化
+    document.addEventListener('DOMContentLoaded', function () {
+        initEmbeddedMap(
+            '{{ post.id }}',
+            {% if post.latitude %}'{{ post.latitude }}'{% else %}null{% endif %},
+        {% if post.longitude %}'{{ post.longitude }}'{% else %} null{% endif %},
+    '{{ post.region.region }}'
+        );
+    });
+
     // 埋め込み地図を初期化する関数
     function initEmbeddedMap(postId, latitude, longitude, regionName) {
         const mapContainer = document.getElementById('embedded-map-' + postId);
@@ -264,12 +247,7 @@
     });
 
     function toggleComments(postId) {
-        const commentsSection = document.getElementById('comments-' + postId);
-        if (commentsSection.style.display === 'none') {
-            commentsSection.style.display = 'block';
-        } else {
-            commentsSection.style.display = 'none';
-        }
+        // 詳細ページでは常に表示されているため、何もしない
     }
 
     function toggleLike(postId) {
@@ -309,16 +287,16 @@
     function sharePost(postId) {
         const url = window.location.origin + '/post/' + postId;
         navigator.clipboard.writeText(url).then(function () {
-            alert('投稿のURLをクリップボードにコピーしました！\n' + url);
+            alert('投稿のURLをクリップボードにコピーしました！');
         }).catch(function () {
-            // フォールバック（古いブラウザ対応）
+            // フォールバック
             const textArea = document.createElement('textarea');
             textArea.value = url;
             document.body.appendChild(textArea);
             textArea.select();
             document.execCommand('copy');
             document.body.removeChild(textArea);
-            alert('投稿のURLをクリップボードにコピーしました！\n' + url);
+            alert('投稿のURLをクリップボードにコピーしました！');
         });
     }
 
@@ -453,6 +431,7 @@
 
                     commentInput.value = '';
 
+                    // コメント数を更新
                     const commentButton = document.querySelector(`button[onclick="toggleComments('${postId}')"]`);
                     if (commentButton) {
                         const currentCount = parseInt(commentButton.textContent.match(/\d+/)[0]);
@@ -473,16 +452,5 @@
                 alert('エラーが発生しました');
             });
     }
-
-    // Enterキーでの送信を無効化
-    document.addEventListener('keydown', function (event) {
-        if (event.target.tagName === 'TEXTAREA' && event.target.id.includes('comment-input')) {
-            if (event.key === 'Enter' && !event.shiftKey) {
-                // Enterキーでの送信を無効化
-                event.stopPropagation();
-                return false;
-            }
-        }
-    });
 </script>
 {% endblock %}
