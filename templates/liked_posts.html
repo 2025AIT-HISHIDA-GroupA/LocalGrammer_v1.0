@@ -26,7 +26,7 @@
                 <strong>{{ post.username }}</strong>
                 <div class="post-meta">
                     <span
-                        style="background: #e74c3c; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.7em; margin-right: 8px;">❤️
+                        style="background: #e74c3c; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.7em; margin-right: 8px;">👍️
                         いいね済み</span>
                     <span>{{ post.tag }}</span> |
                     <span>{{ post.region.region }}</span> |
@@ -82,7 +82,7 @@
         <!-- いいねボタン（常にアクティブ状態） -->
         <button onclick="toggleLike('{{ post.id }}')" class="like-btn" id="like-btn-{{ post.id }}"
             style="background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); color: white; border: none; padding: 10px 20px; border-radius: 25px; cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 1em; box-shadow: 0 2px 8px rgba(231,76,60,0.3);">
-            ❤️ <span id="like-count-{{ post.id }}">{{ post.like_count }}</span>
+            👍️ <span id="like-count-{{ post.id }}">{{ post.like_count }}</span>
         </button>
 
         <button onclick="toggleComments('{{ post.id }}')"
