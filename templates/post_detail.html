@@ -8,10 +8,25 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <div style="margin-bottom: 20px;">
-    <a href="{{ url_for('main.home') }}" style="color: #007bff; text-decoration: none;">← ホームに戻る</a>
+    <a href="{{ url_for('main.home') if is_logged_in else url_for('auth.login') }}"
+        style="color: #007bff; text-decoration: none;">
+        {{ '← ホームに戻る' if is_logged_in else '← ログインページに戻る' }}
+    </a>
 </div>
 
 <h2>投稿詳細</h2>
+
+<!-- ログインしていない場合の案内 -->
+{% if not is_logged_in %}
+<div
+    style="margin-bottom: 20px; padding: 15px; background: #e7f3ff; border: 1px solid #bee5eb; border-radius: 8px; color: #0c5460;">
+    <div style="font-weight: bold; margin-bottom: 5px;">📝 投稿を見ている方へ</div>
+    <div style="font-size: 0.9em;">
+        この投稿にコメントやいいねをしたい場合は、<a href="{{ url_for('auth.login') }}" style="color: #007bff;">ログイン</a>または<a
+            href="{{ url_for('auth.register') }}" style="color: #007bff;">ユーザー登録</a>をしてください。
+    </div>
+</div>
+{% endif %}
 
 <div class="post">
     <!-- 上部: 投稿内容と地図の2列レイアウト -->
@@ -65,10 +80,20 @@
     <!-- グッドボタン、コメント数、共有ボタン（全幅） -->
     <div class="post-actions"
         style="padding: 15px 0; border-top: 1px solid #eee; border-bottom: 1px solid #eee; display: flex; gap: 20px; align-items: center; background-color: #f8f9fa;">
+
+        {% if is_logged_in %}
+        <!-- ログイン済み: 通常のいいねボタン -->
         <button onclick="toggleLike('{{ post.id }}')" class="like-btn" id="like-btn-{{ post.id }}"
             style="background: {{ 'red' if post.user_liked else '#f0f0f0' }}; color: {{ 'white' if post.user_liked else '#333' }}; border: none; padding: 10px 20px; border-radius: 25px; cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 1em;">
             👍 <span id="like-count-{{ post.id }}">{{ post.like_count }}</span>
         </button>
+        {% else %}
+        <!-- ログインしていない: 表示のみのいいねボタン -->
+        <button onclick="promptLogin()"
+            style="background: #f0f0f0; color: #333; border: none; padding: 10px 20px; border-radius: 25px; cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 1em;">
+            👍 {{ post.like_count }}
+        </button>
+        {% endif %}
 
         <button onclick="toggleComments('{{ post.id }}')"
             style="background: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 25px; cursor: pointer; font-size: 1em;">
@@ -111,8 +136,8 @@
                                 style="font-size: 0.85em; color: #6c757d; background: #f8f9fa; padding: 4px 12px; border-radius: 20px;">
                                 📅 {{ comment.created_at[:10] }}
                             </div>
-                            <!-- コメント削除ボタン（自分のコメントのみ） -->
-                            {% if comment.username == session.username %}
+                            <!-- コメント削除ボタン（自分のコメントのみ、ログイン済みのみ） -->
+                            {% if is_logged_in and comment.username == session.username %}
                             <button onclick="deleteComment('{{ comment.id }}', '{{ post.id }}')"
                                 style="background: #dc3545; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 0.7em;"
                                 title="コメントを削除">
@@ -137,7 +162,8 @@
             {% endif %}
         </div>
 
-        <!-- コメント入力フォーム -->
+        <!-- コメント入力フォーム（ログイン済みのみ表示） -->
+        {% if is_logged_in %}
         <form onsubmit="addComment(event, '{{ post.id }}')"
             style="background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
             <h4
@@ -159,6 +185,24 @@
                 </button>
             </div>
         </form>
+        {% else %}
+        <!-- ログインしていない場合のコメント入力案内 -->
+        <div
+            style="background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); text-align: center;">
+            <h4 style="margin: 0 0 15px 0; color: #495057; font-size: 1.1em;">💬 コメントを投稿するには</h4>
+            <p style="margin: 0 0 15px 0; color: #6c757d;">この投稿にコメントするにはログインが必要です</p>
+            <div style="display: flex; gap: 10px; justify-content: center;">
+                <a href="{{ url_for('auth.login') }}"
+                    style="background: #007bff; color: white; padding: 10px 20px; border-radius: 8px; text-decoration: none; font-weight: 600;">
+                    ログイン
+                </a>
+                <a href="{{ url_for('auth.register') }}"
+                    style="background: #28a745; color: white; padding: 10px 20px; border-radius: 8px; text-decoration: none; font-weight: 600;">
+                    新規登録
+                </a>
+            </div>
+        </div>
+        {% endif %}
     </div>
 </div>
 
@@ -172,6 +216,9 @@
 </div>
 
 <script>
+    // ログイン状態を JavaScript 変数として設定
+    const isLoggedIn = {{ 'true' if is_logged_in else 'false' }};
+
     // 地図初期化
     document.addEventListener('DOMContentLoaded', function () {
         initEmbeddedMap(
@@ -250,7 +297,19 @@
         // 詳細ページでは常に表示されているため、何もしない
     }
 
+    // ログインが必要な機能にアクセスした時の案内
+    function promptLogin() {
+        if (confirm('この機能を使用するにはログインが必要です。ログインページに移動しますか？')) {
+            window.location.href = '{{ url_for("auth.login") }}';
+        }
+    }
+
     function toggleLike(postId) {
+        if (!isLoggedIn) {
+            promptLogin();
+            return;
+        }
+
         fetch('/toggle_like', {
             method: 'POST',
             headers: {
@@ -300,8 +359,13 @@
         });
     }
 
-    // コメント削除機能
+    // コメント削除機能（ログイン済みユーザーのみ）
     function deleteComment(commentId, postId) {
+        if (!isLoggedIn) {
+            promptLogin();
+            return;
+        }
+
         if (!confirm('このコメントを削除しますか？')) {
             return;
         }
@@ -355,6 +419,11 @@
 
     function addComment(event, postId) {
         event.preventDefault();
+
+        if (!isLoggedIn) {
+            promptLogin();
+            return;
+        }
 
         const commentInput = document.getElementById('comment-input-' + postId);
         const commentText = commentInput.value.trim();

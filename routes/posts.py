@@ -215,7 +215,7 @@ def delete_post():
 @posts_bp.route('/post/<string:post_id>')
 def post_detail(post_id):
     """
-    投稿詳細ページ
+    投稿詳細ページ - ログイン不要
     
     URLパラメータ:
         - auth_token: 認証トークン（オプション）
@@ -252,6 +252,9 @@ def post_detail(post_id):
     
     if not post:
         flash('投稿が見つかりません。', 'error')
+        # ログインしていない場合は、ログインページにリダイレクト
+        if 'user_id' not in session:
+            return redirect(url_for('auth.login'))
         return redirect(url_for('main.home'))
     
     # コメントとライク情報を取得
@@ -268,11 +271,18 @@ def post_detail(post_id):
     if is_logged_in:
         user_liked = session['user_id'] in post_likes
     
+    # 投稿に詳細情報を追加
+    post['comments'] = post_comments
+    post['comment_count'] = len(post_comments)
+    post['like_count'] = len(post_likes)
+    post['user_liked'] = user_liked
+    
     return render_template('post_detail.html', 
                          post=post, 
                          comments=post_comments,
                          likes=post_likes,
                          user_liked=user_liked,
                          is_logged_in=is_logged_in,
+                         username=session.get('username', ''),
                          regions=REGIONS,
                          tags=TAGS)
