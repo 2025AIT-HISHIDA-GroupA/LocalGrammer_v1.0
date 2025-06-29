@@ -203,14 +203,6 @@
                 <span style="margin-left: 10px; font-weight: 600; color: #495057;">{{ session.username }}</span>
             </div>
         </div>
-        {% elif not request.endpoint or request.endpoint not in ['posts.post_detail', 'main.show_map'] %}
-        <!-- ログインしていない場合のヘッダー（投稿詳細・地図以外のページ） -->
-        <div class="header">
-            <div class="nav-links">
-                <a href="{{ url_for('auth.login') }}">ログイン</a>
-                <a href="{{ url_for('auth.register') }}">ユーザー登録</a>
-            </div>
-        </div>
         {% endif %}
 
         {% with messages = get_flashed_messages(with_categories=true) %}
