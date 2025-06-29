@@ -211,3 +211,78 @@ def delete_post():
         save_json('Likes.json', likes)
     
     return jsonify({'success': True, 'message': '投稿を削除しました'})
+
+@posts_bp.route('/post/<string:post_id>')
+def post_detail(post_id):
+    """
+    投稿詳細ページ - ログイン不要
+    
+    URLパラメータ:
+        - auth_token: 認証トークン（オプション）
+    """
+    # URLパラメータから認証トークンを取得
+    auth_token = request.args.get('auth_token')
+    
+    # 認証トークンがある場合は自動的にログイン
+    if auth_token and 'user_id' not in session:
+        # temp_auth_tokensをインポート
+        from routes.api import temp_auth_tokens
+        
+        if auth_token in temp_auth_tokens:
+            token_data = temp_auth_tokens[auth_token]
+            
+            # トークンの有効期限をチェック
+            if datetime.now() < token_data['expires_at']:
+                session['user_id'] = token_data['user_id']
+                session['username'] = token_data['username']
+                
+                # 使用済みトークンを削除
+                del temp_auth_tokens[auth_token]
+            else:
+                # 期限切れトークンを削除
+                del temp_auth_tokens[auth_token]
+    
+    posts = load_json('Posts.json')
+    post = None
+    
+    for p in posts:
+        if p['id'] == post_id:
+            post = p
+            break
+    
+    if not post:
+        flash('投稿が見つかりません。', 'error')
+        # ログインしていない場合は、ログインページにリダイレクト
+        if 'user_id' not in session:
+            return redirect(url_for('auth.login'))
+        return redirect(url_for('main.home'))
+    
+    # コメントとライク情報を取得
+    comments = load_json('Comments.json')
+    likes = load_json('Likes.json')
+    
+    post_comments = [c for c in comments if c['post_id'] == post_id]
+    post_likes = likes.get(post_id, [])
+    
+    # ユーザーがログインしているかチェック
+    is_logged_in = 'user_id' in session
+    user_liked = False
+    
+    if is_logged_in:
+        user_liked = session['user_id'] in post_likes
+    
+    # 投稿に詳細情報を追加
+    post['comments'] = post_comments
+    post['comment_count'] = len(post_comments)
+    post['like_count'] = len(post_likes)
+    post['user_liked'] = user_liked
+    
+    return render_template('post_detail.html', 
+                         post=post, 
+                         comments=post_comments,
+                         likes=post_likes,
+                         user_liked=user_liked,
+                         is_logged_in=is_logged_in,
+                         username=session.get('username', ''),
+                         regions=REGIONS,
+                         tags=TAGS)

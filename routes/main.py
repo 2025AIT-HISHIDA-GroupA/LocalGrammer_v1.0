@@ -21,7 +21,7 @@ def get_post_details(post, user_id):
     # いいね情報を追加
     post_likes = likes.get(post_id, [])
     post['like_count'] = len(post_likes)
-    post['user_liked'] = user_id in post_likes
+    post['user_liked'] = user_id in post_likes if user_id else False
     
     return post
 
@@ -147,10 +147,7 @@ def profile():
 
 @main_bp.route('/map/<region>')
 def show_map(region):
-    """地図表示ページ"""
-    if 'user_id' not in session:
-        return redirect(url_for('auth.login'))
-    
+    """地図表示ページ - ログイン不要"""
     posts = load_json('Posts.json')
     
     # デバッグ情報を出力
@@ -217,10 +214,7 @@ def delete_comment():
 
 @main_bp.route('/post/<string:post_id>')
 def post_detail(post_id):
-    """投稿詳細ページ"""
-    if 'user_id' not in session:
-        return redirect(url_for('auth.login'))
-    
+    """投稿詳細ページ - ログイン不要"""
     posts = load_json('Posts.json')
     post = None
     
@@ -231,9 +225,19 @@ def post_detail(post_id):
     
     if not post:
         flash('投稿が見つかりません', 'error')
+        # ログインしていない場合は、ログインページにリダイレクト
+        if 'user_id' not in session:
+            return redirect(url_for('auth.login'))
         return redirect(url_for('main.home'))
     
-    # 投稿詳細を取得
-    detailed_post = get_post_details(post, session['user_id'])
+    # ログイン状態を確認
+    user_id = session.get('user_id', None)
+    is_logged_in = user_id is not None
     
-    return render_template('post_detail.html', post=detailed_post, username=session['username'])
+    # 投稿詳細を取得
+    detailed_post = get_post_details(post, user_id)
+    
+    return render_template('post_detail.html', 
+                         post=detailed_post, 
+                         username=session.get('username', ''),
+                         is_logged_in=is_logged_in)
