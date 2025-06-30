@@ -1,7 +1,8 @@
 from flask import Blueprint, request, session, jsonify, current_app
 import uuid
 import os
-from datetime import datetime
+import secrets
+from datetime import datetime, timedelta
 from utils.json_utils import load_json, save_json
 from utils.file_utils import save_uploaded_file, delete_file
 from utils.location_utils import get_region_from_coordinates
@@ -9,6 +10,9 @@ from utils.exif_utils import extract_gps_from_multiple_images
 from config import REGIONS, TAGS
 
 api_bp = Blueprint('api', __name__)
+
+# 一時的な認証トークンを保存する辞書
+temp_auth_tokens = {}
 
 # ==============================================
 # ヘルパー関数（Helper Functions）
@@ -39,6 +43,16 @@ def get_post_details(post, user_id):
     post['user_liked'] = user_id in post_likes
     
     return post
+
+def cleanup_expired_tokens():
+    """期限切れのトークンを削除する"""
+    current_time = datetime.now()
+    expired_tokens = [
+        token for token, data in temp_auth_tokens.items()
+        if current_time >= data['expires_at']
+    ]
+    for token in expired_tokens:
+        del temp_auth_tokens[token]
 
 # ==============================================
 # 認証API（Authentication APIs）
@@ -160,6 +174,112 @@ def api_status():
             }
         })
     return jsonify({'logged_in': False})
+
+@api_bp.route('/auth_token', methods=['POST'])
+def api_auth_token():
+    """
+    API: 認証トークンによるログイン
+    
+    Returns:
+        JSON: 認証結果とセッション情報
+    """
+    data = request.get_json()
+    if not data or 'username' not in data or 'password' not in data:
+        return jsonify({'success': False, 'message': 'Username and password are required.'}), 400
+
+    username = data['username']
+    password = data['password']
+
+    users = load_json('Userdata.json')
+
+    for user_id, user_data in users.items():
+        if user_data['username'] == username and user_data['password'] == password:
+            session['user_id'] = user_id
+            session['username'] = username
+            return jsonify({
+                'success': True, 
+                'message': 'Authentication successful.',
+                'user_id': user_id,
+                'username': username
+            })
+
+    return jsonify({'success': False, 'message': 'Invalid credentials.'}), 401
+
+@api_bp.route('/auth_from_app', methods=['POST'])
+def api_auth_from_app():
+    """
+    API: アプリからの認証情報を受け取ってログイン状態を維持
+    
+    Returns:
+        JSON: 認証結果
+    """
+    data = request.get_json()
+    if not data or 'username' not in data or 'password' not in data:
+        return jsonify({'success': False, 'message': 'Username and password are required.'}), 400
+
+    username = data['username']
+    password = data['password']
+
+    users = load_json('Userdata.json')
+
+    for user_id, user_data in users.items():
+        if user_data['username'] == username and user_data['password'] == password:
+            session['user_id'] = user_id
+            session['username'] = username
+            return jsonify({
+                'success': True, 
+                'message': 'Authentication successful.',
+                'user_id': user_id,
+                'username': username
+            })
+
+    return jsonify({'success': False, 'message': 'Invalid credentials.'}), 401
+
+@api_bp.route('/generate_auth_token', methods=['POST'])
+def api_generate_auth_token():
+    """
+    API: 一時的な認証トークンを生成
+    
+    Request Body:
+        {
+            "username": str,
+            "password": str
+        }
+    
+    Returns:
+        JSON: 認証トークン
+    """
+    # 期限切れのトークンをクリーンアップ
+    cleanup_expired_tokens()
+
+    data = request.get_json()
+    if not data or 'username' not in data or 'password' not in data:
+        return jsonify({'success': False, 'message': 'Username and password are required.'}), 400
+
+    username = data['username']
+    password = data['password']
+
+    users = load_json('Userdata.json')
+
+    for user_id, user_data in users.items():
+        if user_data['username'] == username and user_data['password'] == password:
+            # 一時的な認証トークンを生成
+            token = secrets.token_urlsafe(32)
+            expires_at = datetime.now() + timedelta(minutes=5)  # 5分間有効
+
+            temp_auth_tokens[token] = {
+                'user_id': user_id,
+                'username': username,
+                'expires_at': expires_at
+            }
+
+            return jsonify({
+                'success': True,
+                'auth_token': token,
+                'expires_at': expires_at.isoformat()
+            })
+
+    return jsonify({'success': False, 'message': 'Invalid credentials.'}), 401
 
 # ==============================================
 # 投稿API（Post APIs）
