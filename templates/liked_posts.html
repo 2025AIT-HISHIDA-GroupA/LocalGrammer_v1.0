@@ -19,9 +19,9 @@
 {% for post in posts %}
 <div class="post" id="post-{{ post.id }}">
     <!-- 上部: 投稿内容と地図の2列レイアウト -->
-    <div style="display: flex; gap: 20px; margin-bottom: 15px;">
+    <div class="post-layout">
         <!-- 左側: 投稿内容 -->
-        <div style="flex: 1;">
+        <div class="post-main-content">
             <div class="post-header">
                 <strong>{{ post.username }}</strong>
                 <div class="post-meta">
@@ -67,11 +67,9 @@
         </div>
 
         <!-- 右側: 埋め込み地図 -->
-        <div style="flex-shrink: 0;">
+        <div class="post-map-container">
             <div class="embedded-map" id="embedded-map-{{ post.id }}"
-                style="width: 300px; height: 250px; border-radius: 8px; overflow: hidden; border: 2px solid #ddd; cursor: pointer;"
-                onclick="openDetailMap('{{ post.id }}', '{{ post.region.region }}')">
-            </div>
+                onclick="openDetailMap('{{ post.id }}', '{{ post.region.region }}')"></div>
         </div>
     </div>
 
