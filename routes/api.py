@@ -186,12 +186,12 @@ def api_auth_token():
     data = request.get_json()
     if not data or 'username' not in data or 'password' not in data:
         return jsonify({'success': False, 'message': 'Username and password are required.'}), 400
-
+    
     username = data['username']
     password = data['password']
-
+    
     users = load_json('Userdata.json')
-
+    
     for user_id, user_data in users.items():
         if user_data['username'] == username and user_data['password'] == password:
             session['user_id'] = user_id
@@ -202,7 +202,7 @@ def api_auth_token():
                 'user_id': user_id,
                 'username': username
             })
-
+    
     return jsonify({'success': False, 'message': 'Invalid credentials.'}), 401
 
 @api_bp.route('/auth_from_app', methods=['POST'])
@@ -216,12 +216,12 @@ def api_auth_from_app():
     data = request.get_json()
     if not data or 'username' not in data or 'password' not in data:
         return jsonify({'success': False, 'message': 'Username and password are required.'}), 400
-
+    
     username = data['username']
     password = data['password']
-
+    
     users = load_json('Userdata.json')
-
+    
     for user_id, user_data in users.items():
         if user_data['username'] == username and user_data['password'] == password:
             session['user_id'] = user_id
@@ -232,7 +232,7 @@ def api_auth_from_app():
                 'user_id': user_id,
                 'username': username
             })
-
+    
     return jsonify({'success': False, 'message': 'Invalid credentials.'}), 401
 
 @api_bp.route('/generate_auth_token', methods=['POST'])
@@ -251,34 +251,34 @@ def api_generate_auth_token():
     """
     # 期限切れのトークンをクリーンアップ
     cleanup_expired_tokens()
-
+    
     data = request.get_json()
     if not data or 'username' not in data or 'password' not in data:
         return jsonify({'success': False, 'message': 'Username and password are required.'}), 400
-
+    
     username = data['username']
     password = data['password']
-
+    
     users = load_json('Userdata.json')
-
+    
     for user_id, user_data in users.items():
         if user_data['username'] == username and user_data['password'] == password:
             # 一時的な認証トークンを生成
             token = secrets.token_urlsafe(32)
             expires_at = datetime.now() + timedelta(minutes=5)  # 5分間有効
-
+            
             temp_auth_tokens[token] = {
                 'user_id': user_id,
                 'username': username,
                 'expires_at': expires_at
             }
-
+            
             return jsonify({
                 'success': True,
                 'auth_token': token,
                 'expires_at': expires_at.isoformat()
             })
-
+    
     return jsonify({'success': False, 'message': 'Invalid credentials.'}), 401
 
 # ==============================================
