@@ -3,6 +3,7 @@
 
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{{ region }}の投稿マップ</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <style>
@@ -23,6 +24,27 @@
 
     .back-link:hover {
       background-color: #0056b3;
+    }
+
+    /* スマートフォン向けのレスポンシブ対応 */
+    @media (max-width: 768px) {
+      body {
+        margin: 0;
+      }
+      h1 {
+        font-size: 1.5em;
+        padding: 15px;
+        margin: 0;
+      }
+      #map {
+        /* ヘッダーとフッターの分を考慮して高さを画面に合わせる */
+        height: calc(100vh - 130px);
+      }
+      .back-link {
+        margin: 15px;
+        display: block; /* ブロック要素にして中央揃えしやすくする */
+        text-align: center;
+      }
     }
   </style>
 </head>
