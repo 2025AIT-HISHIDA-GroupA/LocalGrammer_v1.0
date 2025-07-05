@@ -15,11 +15,11 @@ def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
     
-    # セッション設定を改善
-    app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'  # クロスドメインでのセッション共有を許可
-    app.config['SESSION_COOKIE_SECURE'] = False  # 開発環境用
-    app.config['SESSION_COOKIE_HTTPONLY'] = True  # セキュリティのためTrueに戻す
-    app.config['SESSION_COOKIE_DOMAIN'] = None  # すべてのドメインでセッションを共有
+    # セッション設定（開発環境用に一時的に調整）
+    app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'  # 開発環境用
+    app.config['SESSION_COOKIE_SECURE'] = False  # 開発環境ではHTTPを許可
+    app.config['SESSION_COOKIE_HTTPONLY'] = True  # XSS攻撃を防ぐため
+    app.config['SESSION_COOKIE_DOMAIN'] = None  # 現在のドメインのみ
     app.config['PERMANENT_SESSION_LIFETIME'] = 86400  # セッション有効期限を24時間に設定
     
     # アップロードフォルダを作成
@@ -38,4 +38,4 @@ def create_app():
 
 if __name__ == '__main__':
     app = create_app()
-    app.run(debug=True, port=5002,host='0.0.0.0')
+    app.run(debug=False, port=5002, host='0.0.0.0')

@@ -6,6 +6,7 @@ from utils.json_utils import load_json, save_json
 from utils.file_utils import save_uploaded_file, delete_file
 from utils.location_utils import get_region_from_coordinates
 from utils.exif_utils import extract_gps_from_multiple_images
+from utils.validation import validate_comment, validate_tag, validate_region, validate_coordinates, sanitize_input
 from config import REGIONS, TAGS
 
 posts_bp = Blueprint('posts', __name__)
@@ -17,12 +18,24 @@ def post():
         return redirect(url_for('auth.login'))
     
     if request.method == 'POST':
-        tag = request.form['tag']
-        region = request.form.get('region')
+        tag = request.form.get('tag', '').strip()
+        region = request.form.get('region', '').strip()
+        
+        # 入力値検証
+        tag_valid, tag_error = validate_tag(tag)
+        if not tag_valid:
+            flash(tag_error, 'error')
+            return render_template('post.html', regions=REGIONS, tags=TAGS)
         
         # 座標情報の取得
         latitude = request.form.get('latitude')
         longitude = request.form.get('longitude')
+        
+        # 座標検証
+        coords_valid, coords_error = validate_coordinates(latitude, longitude)
+        if not coords_valid:
+            flash(coords_error, 'error')
+            return render_template('post.html', regions=REGIONS, tags=TAGS)
         
         # 画像ファイルの処理
         uploaded_images = []
@@ -62,6 +75,12 @@ def post():
             flash('地域を選択するか、位置情報を許可してください。', 'error')
             return render_template('post.html', regions=REGIONS, tags=TAGS)
         
+        # 地域検証
+        region_valid, region_error = validate_region(region)
+        if not region_valid:
+            flash(region_error, 'error')
+            return render_template('post.html', regions=REGIONS, tags=TAGS)
+        
         # 投稿データを作成
         post_data = {
             'id': str(uuid.uuid4()),
@@ -98,18 +117,26 @@ def add_comment():
     if 'user_id' not in session:
         return jsonify({'success': False, 'message': 'ログインが必要です'})
     
-    post_id = request.form.get('post_id')
-    comment_text = request.form.get('comment_text')
+    post_id = request.form.get('post_id', '').strip()
+    comment_text = request.form.get('comment_text', '').strip()
     
-    if not post_id or not comment_text:
-        return jsonify({'success': False, 'message': 'コメントが空です'})
+    # 入力値検証
+    if not post_id:
+        return jsonify({'success': False, 'message': '投稿IDが無効です'})
+    
+    comment_valid, comment_error = validate_comment(comment_text)
+    if not comment_valid:
+        return jsonify({'success': False, 'message': comment_error})
+    
+    # コメントをサニタイズ
+    comment_text = sanitize_input(comment_text)
     
     comment_data = {
         'id': str(uuid.uuid4()),
         'post_id': post_id,
         'user_id': session['user_id'],
         'username': session['username'],
-        'comment': comment_text.strip(),
+        'comment': comment_text,
         'created_at': datetime.now().isoformat()
     }
     

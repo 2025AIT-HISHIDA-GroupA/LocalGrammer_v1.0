@@ -1,10 +1,10 @@
 import os
 
 class Config:
-    SECRET_KEY = 'your-secret-key-here'
-    SECRET_KEY = os.environ.get('SECRET_KEY') or 'your-secret-key-here'
+    # セキュアなシークレットキーを生成（本番環境では環境変数から取得）
+    SECRET_KEY = os.environ.get('SECRET_KEY') or os.urandom(32).hex()
     UPLOAD_FOLDER = 'static/uploads'
-    MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB max file size
+    MAX_CONTENT_LENGTH = 5 * 1024 * 1024  # 5MB max file size（セキュリティのため削減）
 
 # 許可される画像ファイル形式
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}

@@ -18,10 +18,10 @@
         <div class="post-main-content">
             <div class="post-header">
                 <!-- 投稿者名を通常のテキストに戻す -->
-                <strong style="font-size: 1.1em;">{{ post.username }}</strong>
+                <strong style="font-size: 1.1em;">{{ post.username|e }}</strong>
                 <div class="post-meta">
-                    <span>{{ post.tag }}</span> |
-                    <span>{{ post.region.region }}</span> |
+                    <span>{{ post.tag|e }}</span> |
+                    <span>{{ post.region.region|e }}</span> |
                     <span>{{ post.created_at[:10] }}</span>
                 </div>
             </div>
@@ -108,7 +108,7 @@
                                 style="background: #007bff; color: white; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.8em;">
                                 {{ comment.username[0].upper() }}
                             </span>
-                            {{ comment.username }}
+                            {{ comment.username|e }}
                         </div>
                         <div style="display: flex; align-items: center; gap: 10px;">
                             <div
@@ -126,7 +126,7 @@
                         </div>
                     </div>
                     <div style="color: #495057; line-height: 1.6; font-size: 1em; margin-left: 40px;">
-                        {{ comment.comment }}
+                        {{ comment.comment|e }}
                     </div>
                 </div>
                 {% endfor %}
@@ -171,6 +171,18 @@
 
 <!-- 地図初期化スクリプト -->
 <script>
+    // HTMLエスケープ関数を追加
+    function escapeHtml(text) {
+        var map = {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#039;'
+        };
+        return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+    }
+
     document.addEventListener('DOMContentLoaded', function () {
         {% for post in posts %}
         initEmbeddedMap(
@@ -425,7 +437,7 @@
                                 <span style="background: #007bff; color: white; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.8em;">
                                     ${data.comment.username[0].toUpperCase()}
                                 </span>
-                                ${data.comment.username}
+                                ${escapeHtml(data.comment.username)}
                             </div>
                             <div style="display: flex; align-items: center; gap: 10px;">
                                 <div style="font-size: 0.85em; color: #6c757d; background: #f8f9fa; padding: 4px 12px; border-radius: 20px;">
@@ -439,7 +451,7 @@
                             </div>
                         </div>
                         <div style="color: #495057; line-height: 1.6; font-size: 1em; margin-left: 40px;">
-                            ${data.comment.comment}
+                            ${escapeHtml(data.comment.comment)}
                         </div>
                     `;
 
