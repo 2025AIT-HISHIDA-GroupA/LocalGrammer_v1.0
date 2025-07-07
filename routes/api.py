@@ -306,7 +306,9 @@ def api_home_feed():
     filtered_posts = []
     
     for post in posts:
-        region_match = post.get('region', {}).get('region') == user_region.get('region')
+        # 全域が選択されている場合はすべての地域の投稿を表示
+        region_match = (user_region.get('region') == '全域' or 
+                       post.get('region', {}).get('region') == user_region.get('region'))
         tag_match = post.get('tag') in user_tags
         if region_match and tag_match:
             detailed_post = get_post_details(post.copy(), user_id)
