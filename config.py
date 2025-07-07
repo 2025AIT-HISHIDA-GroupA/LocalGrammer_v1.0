@@ -11,7 +11,6 @@ ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 
 # 地域リスト
 REGIONS = [
-    '全域',
     '東海圏',
     '首都圏', 
     '関西圏',
